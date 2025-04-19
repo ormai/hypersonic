@@ -1,0 +1,9 @@
+[project]
+name = "Hypersonic"
+version = "0.1.0"
+description = "Hypersonic local runner"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pygame>=2.6.1",
+]
