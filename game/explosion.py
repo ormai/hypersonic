@@ -6,6 +6,7 @@ class Explosion:
         self.y = y
         self.timer = duration
 
-    def tick(self):
+    def tick(self) -> bool:
+        """Ticks the explosion timer. Returns True if the visual still lasts"""
         self.timer -= 1
         return self.timer > 0
