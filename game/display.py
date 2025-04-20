@@ -27,8 +27,8 @@ class Display:
         self.width = game.WIDTH * self.CELL_SIZE
         self.height = game.HEIGHT * self.CELL_SIZE
         try:
-            self.font = pygame.font.Font("resources/JetBrainsMono-Regular.ttf", 20)
-            self.big_font = pygame.font.Font("resources/JetBrainsMono-Regular.ttf", 50)
+            self.font = pygame.font.Font("game/resources/JetBrainsMono-Regular.ttf", 20)
+            self.big_font = pygame.font.Font("game/resources/JetBrainsMono-Regular.ttf", 50)
         except FileNotFoundError:
             self.font = pygame.font.Font(None, 20)
             self.big_font = pygame.font.Font(None, 50)

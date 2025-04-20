@@ -21,8 +21,8 @@ import pygame
 
 def main():
     game = Game([
-        [sys.executable, "agents/random_agent.py"],
-        [sys.executable, "agents/other_random_agent.py"]
+        [sys.executable, "game/agents/random_agent.py"],
+        [sys.executable, "game/agents/other_random_agent.py"]
     ])
     display = Display(game)
     clock = pygame.time.Clock()

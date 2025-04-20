@@ -5,5 +5,7 @@ description = "Hypersonic local runner"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "flake8>=7.2.0",
     "pygame>=2.6.1",
+    "pytest>=8.3.5",
 ]
