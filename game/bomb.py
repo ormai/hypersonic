@@ -24,7 +24,7 @@ class Bomb:
             self.timer -= 1
         return self.timer == 0
 
-    def get_entity_str(self):
+    def serialize(self):
         # entity_type owner x y param_1 param_2
         # param_1 = timer, param_2 = range
         return f"{EntityType.BOMB.value} {self.owner_id} {self.x} {self.y} {self.timer} {self.range}"

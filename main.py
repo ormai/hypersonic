@@ -1,9 +1,7 @@
-import sys
-
-import pygame
-
 from game.display import Display
-from game.model import Game, get_initial_input_string
+from game.model import Game
+import sys
+import pygame
 
 
 def main():
@@ -20,22 +18,16 @@ def main():
     clock = pygame.time.Clock()
 
     for agent in game.agents:
-        agent.send(get_initial_input_string(agent.id))
+        agent.send(game.get_serialized_prelude(agent.id))
 
     while game.running:
         if any(event.type == pygame.QUIT for event in pygame.event.get()):
             bail_out()
 
         for agent in game.agents:
-            agent.send(game.get_serialized_game_state())
+            agent.send(game.get_serialized_turn_state())
 
-        current_timeout = game.TIMEOUT_PER_TURN if game.turn > 0 else game.TIMEOUT_FIRST_TURN
-        actions: list[str] = ["" for _ in range(len(game.agents))]
-        for agent in game.agents:
-            actions[agent.id] = agent.receive(current_timeout)
-        print(actions)
-        game.update(actions)
-
+        game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
         display.draw()
         clock.tick(4)
         game.turn += 1
@@ -47,7 +39,7 @@ def main():
         agent.terminate()
 
     survivors = game.alive_agents()
-    display.show_final_message(f"Winner: agent {survivors[0].id}" if len(survivors) == 1 else "Draw")
+    display.show_final_message(f"Winner: {survivors[0].id}" if len(survivors) == 1 else "Draw")
 
     while pygame.event.wait().type != pygame.QUIT:
         pass
