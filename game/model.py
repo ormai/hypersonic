@@ -7,8 +7,6 @@ from random import choice
 from collections import deque
 
 
-
-
 class Game:
     """Game logic"""
 
@@ -40,6 +38,9 @@ class Game:
         self.explosion_visuals: list[Explosion] = []
         self.grid = [list(row) for row in choice(LAYOUTS)]
 
+        assert all(len(row) == self.WIDTH for row in self.grid) and len(
+            self.grid) == self.HEIGHT, f"Grid must be {self.WIDTH}x{self.HEIGHT}"
+
         for i, cmd in enumerate(agent_commands):
             start_x, start_y = self.START_POSITIONS[i]
             self.agents.append(Agent(i, start_x, start_y, cmd))
@@ -56,9 +57,8 @@ class Game:
         Generates the input string for all agents, representing the game
         state at the beginning of the turn.
         """
-        grid = "\n".join("".join(row) for row in self.grid)
-        entities: list[str] = list(map(lambda a: a.serialize(), self.alive_agents())) + list(map(lambda b: b.serialize(), self.unexploded_bombs()))
-        return f"{grid}\n{len(entities)}\n{'\n'.join(entities)}"
+        entities = [e.serialize() for e in self.alive_agents() + self.unexploded_bombs()]
+        return f"{'\n'.join(''.join(row) for row in self.grid)}\n{len(entities)}\n{'\n'.join(entities)}"
 
     @staticmethod
     def get_serialized_prelude(agent_id: int) -> str:
@@ -124,7 +124,7 @@ class Game:
         pack = action.split(maxsplit=3)
         if len(pack) > 3:
             cmd, x, y, msg = pack
-            # TODO: show msg in the display
+            # TODO: show msg on the display
         elif len(pack) == 3:
             cmd, x, y = pack
         else:
@@ -169,8 +169,8 @@ class Game:
                             print(f"{agent.id} wants to place a bomb but cannot")
                         target_x, target_y = agent.x, agent.y
                     case _:
-                        raise ValueError(f"({agent.id}) invalid input."
-                                         "Expected 'MOVE x y | BOMB x y'"
+                        raise ValueError(f"({agent.id}) invalid input." +
+                                         "Expected 'MOVE x y | BOMB x y'" +
                                          f"but found '{cmd} {req_x} {req_y}'")
                 agent.last_action = f"{cmd} {agent.x} {agent.y}"
                 agent_targets[agent_id] = (target_x, target_y)
@@ -183,6 +183,8 @@ class Game:
         """
 
         # In this league, players are not hurt by bombs (they are using practice explosives).
+
+        print(f"# Turn {self.turn + 1}")
 
         self.__propagate_explosions(self.__tick_bombs())
 
@@ -206,22 +208,10 @@ class Game:
                     raise ValueError(f"Agent {agent.id} tried to move to an invalid position")
 
         self.bombs += new_bombs
+        print()
 
     def alive_agents(self) -> list[Agent]:
         return list(filter(lambda agent: agent.is_alive, self.agents))
 
     def unexploded_bombs(self) -> list[Bomb]:
         return list(filter(lambda bomb: not bomb.exploded, self.bombs))
-
-    def is_game_over(self):
-        alive_players = [p for p in self.agents if p.is_alive]
-        return len(alive_players) <= 1
-
-    def get_winner(self):
-        alive_players = [p for p in self.agents if p.is_alive]
-        if len(alive_players) == 1:
-            return alive_players[0]
-        elif len(alive_players) == 0:
-            # Could be a draw if multiple players die in the same explosion
-            return None  # Or handle draws specifically
-        return None  # Game not over

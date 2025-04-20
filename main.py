@@ -1,15 +1,25 @@
+"""
+This is a runner for the Hypersonic game-challenge. The agents are provided
+as isolated programs run in a subprocess. The agents and the runner (this
+program) comunicate through the standard input stream and the standard
+output stream.
+
+The complete specification of the game and message formats can be found here
+
+              https://www.codingame.com/ide/puzzle/hypersonic
+"""
+
 from game.display import Display
 from game.model import Game
 import sys
 import pygame
 
 
-def main():
-    # FIXME: Non è chiaro al momento come passare stdin a un programma asp e ricevere stdout.
-    # FIXME: Inoltre l'agente dovrebbe avere un loop infinito e non terminare.
-    # FIXME: Questi dettagli solo lasciati da determinare.
+# FIXME: Non è chiaro al momento come passare stdin a un programma asp e ricevere stdout.
+# FIXME: Inoltre l'agente dovrebbe avere un loop infinito e non terminare.
+# FIXME: Questi dettagli solo lasciati da determinare.
 
-    # I comandi degli agenti da eseguire in co-processi.
+def main():
     game = Game([
         [sys.executable, "agents/random_agent.py"],
         [sys.executable, "agents/other_random_agent.py"]
@@ -29,7 +39,7 @@ def main():
 
         game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
         display.draw()
-        clock.tick(4)
+        clock.tick(4)  # simulation speed, updates per second
         game.turn += 1
         if game.turn >= game.MAX_TURNS:
             game.running = False

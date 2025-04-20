@@ -4,11 +4,6 @@ from game.enums import EntityType
 from time import time
 
 
-class UnresponsiveAgentError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
 class Agent:
     """
     An agent is a subprocess executing on its own. It gets the game state from
@@ -46,7 +41,7 @@ class Agent:
             bufsize=0,
             universal_newlines=True,
         )
-        print(f"Started agent {agent_id}: {" ".join(self.cmd)} (PID: {self.process.pid})")
+        print(f"Started {agent_id} (PID: {self.process.pid}): {' '.join(self.cmd)}")
 
     def __terminated(self) -> bool:
         """Check if the underlying subprocess has terminated"""
@@ -63,13 +58,13 @@ class Agent:
             bool: whether then sending was successful
         """
         if self.__terminated() or self.process.stdin is None:
-            raise UnresponsiveAgentError(f"Cannot send data to agent {self.id}")
+            raise ConnectionError(f"Cannot send data to agent {self.id}")
 
         try:
             self.process.stdin.write(data + "\n")
             self.process.stdin.flush()
         except (IOError, BrokenPipeError, OSError) as e:
-            raise UnresponsiveAgentError(f"Error sending data to agent {self.id}: {e}")
+            raise ConnectionError(f"Error sending data to agent {self.id}: {e}")
 
     def receive(self, turn: int) -> str:
         """
@@ -82,7 +77,7 @@ class Agent:
             the agent output
         """
         if self.__terminated() or self.process.stdout is None:
-            raise UnresponsiveAgentError(f"Cannot send data to agent {self.id}")
+            raise ConnectionError(f"Cannot send data to agent {self.id}")
 
         if __debug__ and (stderr := self.__read_stderr_non_blocking()):
             print(f"--- Agent {self.id} stderr",
@@ -96,7 +91,7 @@ class Agent:
         while time() - start_time < timeout:
             if line := self.process.stdout.readline():
                 return str(line).strip()
-            raise UnresponsiveAgentError(f"{self.id}'s stdout closed (EOF)")
+            raise ConnectionError(f"{self.id}'s stdout closed (EOF)")
         raise TimeoutError(f"Agent {self.id} failed to provide output in time")
 
     def __read_stderr_non_blocking(self) -> str | None:
