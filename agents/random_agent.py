@@ -4,6 +4,7 @@ while True:
     for _ in range(height):
         row = input()
         assert len(row) == 13
+
     for _ in range(int(input())):
         state = input()
 
