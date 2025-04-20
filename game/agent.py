@@ -1,6 +1,5 @@
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
-from typing import LiteralString
 from game.enums import EntityType
 from time import time
 
@@ -18,6 +17,9 @@ class Agent:
 
     This class also represents the concept of a Player.
     """
+
+    INITIAL_TIMEOUT_S = 1.0
+    TURN_TIMEOUT_S = 0.1
 
     def __init__(self, agent_id: int, x: int, y: int, cmd: list[str]):
         """
@@ -69,15 +71,15 @@ class Agent:
         except (IOError, BrokenPipeError, OSError) as e:
             raise UnresponsiveAgentError(f"Error sending data to agent {self.id}: {e}")
 
-    def receive(self, timeout: float) -> LiteralString | bytes:
+    def receive(self, turn: int) -> str:
         """
         Send data to the agent subprocess
 
         Parameters:
-            timeout (int): time limit for the agent to provide output
+            turn (int): the current turn
 
         Returns:
-            the agent output or None if the agent failed to provide any output
+            the agent output
         """
         if self.__terminated() or self.process.stdout is None:
             raise UnresponsiveAgentError(f"Cannot send data to agent {self.id}")
@@ -87,11 +89,14 @@ class Agent:
                   stderr.strip(),
                   f"---end of agent {self.id} stderr", sep="\n")
 
+        # Response time per turn ≤ 100 ms
+        # Response time for the first turn ≤ 1000 ms
+        timeout = self.TURN_TIMEOUT_S if turn > 0 else self.INITIAL_TIMEOUT_S
         start_time = time()
         while time() - start_time < timeout:
             if line := self.process.stdout.readline():
-                return line.strip()
-            raise UnresponsiveAgentError(f"Agent {self.id} stdout closed (EOF)")
+                return str(line).strip()
+            raise UnresponsiveAgentError(f"{self.id}'s stdout closed (EOF)")
         raise TimeoutError(f"Agent {self.id} failed to provide output in time")
 
     def __read_stderr_non_blocking(self) -> str | None:
@@ -120,7 +125,6 @@ class Agent:
             self.process = None
             print(f"Agent {self.id} terminated")
 
-    def get_entity_str(self) -> str:
-        """Format the entity data in order to pass it to the subprocess via stdin"""
-        # {entity_type} {owner} {x} {y} {param_1} {param_2}
+    def serialize(self) -> str:
+        """Format the entity data to pass it to the agents via stdin"""
         return f"{EntityType.AGENT.value} {self.id} {self.x} {self.y} {self.bombs_left} {self.bomb_range}"
