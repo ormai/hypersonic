@@ -27,7 +27,7 @@ def main():
             bail_out()
 
         for agent in game.agents:
-            agent.send(game.get_turn_state_string())
+            agent.send(game.get_serialized_game_state())
 
         current_timeout = game.TIMEOUT_PER_TURN if game.turn > 0 else game.TIMEOUT_FIRST_TURN
         actions: list[str] = ["" for _ in range(len(game.agents))]

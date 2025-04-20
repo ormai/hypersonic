@@ -32,8 +32,8 @@ class Display:
         except FileNotFoundError:
             self.font = pygame.font.Font(None, 20)
             self.big_font = pygame.font.Font(None, 50)
-        self.status_height = self.font.size("A")[1]
-        self.screen = pygame.display.set_mode((self.width, self.height + self.status_height))
+        self.text_height = self.font.size("A")[1]
+        self.screen = pygame.display.set_mode((self.width, self.height + self.text_height))
 
     def draw(self) -> None:
         """Draw grid and all entities"""
@@ -46,7 +46,7 @@ class Display:
 
         text = (f"Turn: {self.game.turn + 1}/{self.game.MAX_TURNS}, "
                 f"Alive: {len(self.game.alive_agents())}")
-        pygame.draw.rect(self.screen, (0, 0, 0), pygame.rect.Rect(0, self.height, self.width, self.status_height))
+        pygame.draw.rect(self.screen, (0, 0, 0), pygame.rect.Rect(0, self.height, self.width, self.text_height))
         self.screen.blit(self.font.render(text, True, (255, 255, 255), (0, 0, 0)), (5, self.height))
 
         pygame.display.flip()
