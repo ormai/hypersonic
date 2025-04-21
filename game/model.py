@@ -45,12 +45,12 @@ class Game:
             start_x, start_y = self.START_POSITIONS[i]
             self.agents.append(Agent(i, start_x, start_y, cmd))
 
-    def check_bounds(self, x: int, y: int) -> bool:
+    def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.WIDTH and 0 <= y < self.HEIGHT
 
     def can_move(self, x: int, y: int) -> bool:
         """Check if an agent can move at the cell (x, y)"""
-        return self.check_bounds(x, y) and self.grid[y][x] != CellType.BOX.value
+        return self.in_bounds(x, y) and self.grid[y][x] != CellType.BOX.value
 
     def get_serialized_turn_state(self) -> str:
         """
@@ -92,7 +92,7 @@ class Game:
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:  # 4 directions
                 for i in range(1, bomb.range):
                     nx, ny = bomb.x + dx * i, bomb.y + dy * i
-                    if not self.check_bounds(nx, ny):
+                    if not self.in_bounds(nx, ny):
                         break
                     newly_exploded_coordinates.add((nx, ny))
 
@@ -131,50 +131,86 @@ class Game:
             raise ValueError(f"Invalid command, expected was 'BOMB x y' or 'MOVE x y', found '{action}'")
         return cmd.upper(), int(x), int(y)
 
-    def __process_agent_actions(self, actions: dict[int, str]) -> tuple[list[Bomb], dict[int, tuple[int, int]]]:
-        """Returns new bombs placed and a map of the agent next movement targets"""
-        agent_targets: dict[int, tuple[int, int]] = {}
+    def __path(self, src: tuple[int, int], dst: tuple[int, int]) -> tuple[int, int] | None:
+        """
+        Find the short walkable path in the map
+
+        Args:
+            src: A tuple (row, col) representing the beginning of the path
+            dst: A tuple (row, col) representing the end of the path
+
+        Returns:
+            The next cell (row, col) after src in the path to dst or None if
+            there is no path or no next cell
+        """
+        queue = deque([(src, [src])])  # (current_cell, path_so_far)
+        visited = {src}
+
+        while queue:
+            current_cell, path = queue.popleft()
+            row, col = current_cell
+
+            if current_cell == dst:
+                return path[1] if len(path) > 1 else None
+
+            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                new_row, new_col = row + dr, col + dc
+                if self.in_bounds(new_col, new_row) and self.grid[new_row][new_col] != CellType.BOX.value and (
+                        new_row, new_col) not in visited:
+                    visited.add((new_row, new_col))
+                    new_path = list(path)
+                    new_path.append((new_row, new_col))
+                    queue.append(((new_row, new_col), new_path))
+        return None
+
+    def __process_agent_actions(self, actions: dict[int, str]) -> list[Bomb]:
+        """
+        Takes raw action strings parses them and acts upon them
+
+        Return:
+            list[bombs]: new bomb placed
+        """
         new_bombs: list[Bomb] = []
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
             if agent.is_alive:
-                cmd, req_x, req_y = self.__parse_action(action)
-                target_x, target_y = agent.x, agent.y  # default: no movement
-                match cmd:
-                    case "MOVE":
-                        # adjacent or same cell
-                        if abs(req_x - agent.x) + abs(req_y - agent.y) <= 1:
-                            if self.can_move(req_x, req_y):
-                                target_x, target_y = req_x, req_y
-                        print(f"{agent.id} moves to {req_x}, {req_y}")
-                    case "BOMB":
-                        if agent.bombs_left > 0:
-                            if not any(b.x == agent.x and b.y == agent.y for b in self.bombs + new_bombs):
-                                new_bombs.append(
-                                    Bomb(
-                                        agent.id,
-                                        agent.x,
-                                        agent.y,
-                                        self.BOMB_LIFETIME,
-                                        agent.bomb_range,
-                                    )
+                cmd, x, y = self.__parse_action(action)
+                if cmd == "BOMB":
+                    if agent.bombs_left > 0:
+                        if not any(b.x == agent.x and b.y == agent.y
+                                   for b in self.bombs + new_bombs):
+                            new_bombs.append(
+                                Bomb(
+                                    agent.id,
+                                    agent.x,
+                                    agent.y,
+                                    self.BOMB_LIFETIME,
+                                    agent.bomb_range,
                                 )
-                                agent.bombs_left -= 1
-                            else:
-                                # TODO: maybe this not an error
-                                raise ValueError(
-                                    f"{agent.id} tried to place a bomb at {req_x} {req_y}, but there is one there already")
-                            print(f"{agent.id} places a bomb")
+                            )
+                            agent.bombs_left -= 1
                         else:
-                            print(f"{agent.id} wants to place a bomb but cannot")
-                        target_x, target_y = agent.x, agent.y
-                    case _:
-                        raise ValueError(f"({agent.id}) invalid input." +
-                                         "Expected 'MOVE x y | BOMB x y'" +
-                                         f"but found '{cmd} {req_x} {req_y}'")
+                            # TODO: maybe this not an error
+                            raise ValueError(
+                                f"{agent.id} tried to place a bomb at {x} {y}, but there is one there already")
+                        print(f"{agent.id} places a bomb")
+                    else:
+                        print(f"{agent.id} wants to place a bomb but cannot")
+                elif cmd != "MOVE":
+                    raise ValueError(
+                        f"({agent.id}) invalid input. Expected 'MOVE x y |"
+                        + "BOMB x y, but found '{cmd} {x} {y}'")
+
                 agent.last_action = f"{cmd} {agent.x} {agent.y}"
-                agent_targets[agent_id] = (target_x, target_y)
-        return new_bombs, agent_targets
+
+                if next_cell := self.__path((agent.y, agent.x), (y, x)):
+                    y, x = next_cell
+                    print(f"{agent.id} moves to ({x}, {y})")
+                    agent.x, agent.y = x, y
+                else:
+                    print(f"{agent.id} doesn't move")
+
+        return new_bombs
 
     def update(self, actions: dict[int, str]):
         """
@@ -193,20 +229,7 @@ class Game:
         self.explosion_visuals += [Explosion(x, y) for x, y in self.explosions if
                                    not any(v.x == x and v.y == y for v in self.explosion_visuals)]
 
-        new_bombs, agent_targets = self.__process_agent_actions(actions)
-
-        # 5. Resolve Movements & Collisions (Simplistic: players occupy target if possible)
-        # More complex logic needed for head-on collisions, etc.
-        # This version just lets players move if target is not blocked.
-        for agent_id, (new_x, new_y) in agent_targets.items():
-            agent = self.agents[agent_id]
-            if agent.is_alive:
-                # Check again if target is blocked (could have changed if box exploded?)
-                if self.can_move(new_x, new_y):
-                    agent.x, agent.y = new_x, new_y
-                else:
-                    raise ValueError(f"Agent {agent.id} tried to move to an invalid position")
-
+        new_bombs = self.__process_agent_actions(actions)
         self.bombs += new_bombs
         print()
 
