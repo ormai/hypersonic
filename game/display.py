@@ -55,7 +55,7 @@ class Display:
         for r in range(self.game.HEIGHT):
             for c in range(self.game.WIDTH):
                 rect = pygame.Rect(c * self.CELL_SIZE, r * self.CELL_SIZE, self.CELL_SIZE, self.CELL_SIZE)
-                if self.game.grid[r][c] == CellType.BOX:
+                if self.game.grid[r][c] == CellType.BOX.value:
                     pygame.draw.rect(self.screen, self.BOX_COLOR, rect)
                 pygame.draw.rect(self.screen, self.GRID_LINE_COLOR, rect, 1)
 
