@@ -16,21 +16,20 @@ class Agent:
     INITIAL_TIMEOUT_S = 1.0
     TURN_TIMEOUT_S = 0.1
 
-    def __init__(self, agent_id: int, x: int, y: int, cmd: list[str]):
+    def __init__(self, agent_id: int, start_cell: tuple[int, int], cmd: list[str], name: str = ""):
         """
         Parameters:
             cmd (str): the command for the subprocess, each word split
             agent_id (int): an identifier for the agent
-            x (int): initial horizontal coordinate
-            y (int): initial vertical coordinate
         """
         self.id = agent_id
-        self.x = x
-        self.y = y
+        self.x, self.y = start_cell
         self.bombs_left = 1
         self.bomb_range = 3  # Default range including center
         self.is_alive = True
         self.last_action = ""
+        self.message = ""
+        self.name = f"Agent {agent_id}" if not name else name
         self.cmd = cmd
         self.process: Popen | None = Popen(
             self.cmd,

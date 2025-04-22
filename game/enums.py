@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class CellType(Enum):
-    EMPTY = "."
+    FLOOR = "."
     BOX = "0"
 
 

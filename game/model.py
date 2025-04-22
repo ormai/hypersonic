@@ -1,10 +1,17 @@
+from random import choice
+from collections import deque
+from logging import getLogger, StreamHandler, INFO, DEBUG
+from sys import stdout
+
 from game.explosion import Explosion
 from game.bomb import Bomb
 from game.agent import Agent
 from game.enums import CellType
 from game.layouts import LAYOUTS
-from random import choice
-from collections import deque
+
+log = getLogger(__name__)
+log.addHandler(StreamHandler(stream=stdout))
+log.setLevel(DEBUG if __debug__ else INFO)
 
 
 class Game:
@@ -20,6 +27,7 @@ class Game:
         (0, HEIGHT - 1),
     ]
     BOMB_LIFETIME = 8
+    DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 
     def __init__(self, agent_commands: list[list[str]]):
         """
@@ -27,32 +35,21 @@ class Game:
             agent_commands (list[str]): a list of commands to execute the agent subprocesses
         """
 
-        if not 2 <= len(agent_commands) <= 4:
-            raise ValueError("There can be 2, 3 or 4 agents")
+        assert len(agent_commands) == 2, "For now, the game is played with 2 players only."
 
         self.running = True
         self.turn = 0
-        self.agents: list[Agent] = []
         self.bombs: list[Bomb] = []
         self.explosions: set[tuple[int, int]] = set()  # Set of (x, y) tuples for current explosions
         self.explosion_visuals: list[Explosion] = []
         self.grid = [list(row) for row in choice(LAYOUTS)]
 
-        assert all(len(row) == self.WIDTH for row in self.grid) and len(
-            self.grid) == self.HEIGHT, f"Grid must be {self.WIDTH}x{self.HEIGHT}"
+        assert all(len(row) == Game.WIDTH for row in self.grid) and len(
+            self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
 
-        for i, cmd in enumerate(agent_commands):
-            start_x, start_y = self.START_POSITIONS[i]
-            self.agents.append(Agent(i, start_x, start_y, cmd))
+        self.agents = [Agent(i, Game.START_POSITIONS[i], cmd) for i, cmd in enumerate(agent_commands)]
 
-    def in_bounds(self, x: int, y: int) -> bool:
-        return 0 <= x < self.WIDTH and 0 <= y < self.HEIGHT
-
-    def can_move(self, x: int, y: int) -> bool:
-        """Check if an agent can move at the cell (x, y)"""
-        return self.in_bounds(x, y) and self.grid[y][x] != CellType.BOX.value
-
-    def get_serialized_turn_state(self) -> str:
+    def turn_state(self) -> str:
         """
         Generates the input string for all agents, representing the game
         state at the beginning of the turn.
@@ -61,7 +58,7 @@ class Game:
         return f"{'\n'.join(''.join(row) for row in self.grid)}\n{len(entities)}\n{'\n'.join(entities)}"
 
     @staticmethod
-    def get_serialized_prelude(agent_id: int) -> str:
+    def prelude(agent_id: int) -> str:
         """Generates the initial input string for the agent."""
         return f"{Game.WIDTH} {Game.HEIGHT} {agent_id}"
 
@@ -72,8 +69,7 @@ class Game:
         for bomb in self.bombs:
             if bomb.tick():
                 exploding.append(bomb)
-                # Return bomb to owner if it explodes
-                self.agents[bomb.owner_id].bombs_left += 1
+                self.agents[bomb.owner_id].bombs_left += 1  # give back to agent
             else:
                 remaining.append(bomb)
         self.bombs = remaining
@@ -82,9 +78,11 @@ class Game:
     def __propagate_explosions(self, exploding_bombs: list[Bomb]):
         self.explosions.clear()  # previous explosions
         newly_exploded_coordinates: set[tuple[int, int]] = set()
-        queue = deque(exploding_bombs)
         processed_bomb_coordinates: set[tuple[int, int]] = set((b.x, b.y) for b in exploding_bombs)
 
+        # In this league, players are not hurt by bombs (they are using practice explosives).
+
+        queue = deque(exploding_bombs)
         while queue:
             bomb = queue.popleft()
             newly_exploded_coordinates.add((bomb.x, bomb.y))  # Bomb location itself explodes
@@ -97,8 +95,9 @@ class Game:
                     newly_exploded_coordinates.add((nx, ny))
 
                     # destroy boxes hit by explosion
+                    # TODO: upgrade score
                     if self.grid[ny][nx] == CellType.BOX.value:
-                        self.grid[ny][nx] = CellType.EMPTY.value
+                        self.grid[ny][nx] = CellType.FLOOR.value
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby
@@ -119,14 +118,14 @@ class Game:
         # Remove chain-reacted bombs from main list
         self.bombs = [bomb for bomb in self.bombs if not bomb.exploded]
 
-    @staticmethod
-    def __parse_action(action: str) -> tuple[str, int, int]:
+    def __parse_action(self, agent_id: int, action: str) -> tuple[str, int, int]:
         pack = action.split(maxsplit=3)
         if len(pack) > 3:
             cmd, x, y, msg = pack
-            # TODO: show msg on the display
+            self.agents[agent_id].message = msg
         elif len(pack) == 3:
             cmd, x, y = pack
+            self.agents[agent_id].message = ""
         else:
             raise ValueError(f"Invalid command, expected was 'BOMB x y' or 'MOVE x y', found '{action}'")
         return cmd.upper(), int(x), int(y)
@@ -148,69 +147,85 @@ class Game:
 
         while queue:
             current_cell, path = queue.popleft()
-            row, col = current_cell
-
             if current_cell == dst:
                 return path[1] if len(path) > 1 else None
 
-            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                new_row, new_col = row + dr, col + dc
-                if self.in_bounds(new_col, new_row) and self.grid[new_row][new_col] != CellType.BOX.value and (
-                        new_row, new_col) not in visited:
-                    visited.add((new_row, new_col))
+            for dr, dc in Game.DIRECTIONS:
+                row, col = current_cell[0] + dr, current_cell[1] + dc
+                if self.walkable(col, row) and (row, col) not in visited:
+                    visited.add((row, col))
                     new_path = list(path)
-                    new_path.append((new_row, new_col))
-                    queue.append(((new_row, new_col), new_path))
+                    new_path.append((row, col))
+                    queue.append(((row, col), new_path))
         return None
 
-    def __process_agent_actions(self, actions: dict[int, str]) -> list[Bomb]:
+    def __process_agent_actions(self, actions: dict[int, str]):
         """
         Takes raw action strings parses them and acts upon them
 
         Return:
-            list[bombs]: new bomb placed
+            list[bombs]: new bombs placed
         """
-        new_bombs: list[Bomb] = []
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
             if agent.is_alive:
-                cmd, x, y = self.__parse_action(action)
+                cmd, x, y = self.__parse_action(agent_id, action)
                 if cmd == "BOMB":
+                    # bomb placement and movement happen in the same turn
                     if agent.bombs_left > 0:
                         if not any(b.x == agent.x and b.y == agent.y
-                                   for b in self.bombs + new_bombs):
-                            new_bombs.append(
+                                   for b in self.bombs):
+                            self.bombs.append(
                                 Bomb(
                                     agent.id,
                                     agent.x,
                                     agent.y,
-                                    self.BOMB_LIFETIME,
+                                    Game.BOMB_LIFETIME,
                                     agent.bomb_range,
                                 )
                             )
                             agent.bombs_left -= 1
+                            log.info(f"{agent.name} places a bomb at {agent.x} {agent.y}")
                         else:
-                            # TODO: maybe this not an error
-                            raise ValueError(
-                                f"{agent.id} tried to place a bomb at {x} {y}, but there is one there already")
-                        print(f"{agent.id} places a bomb")
+                            log.warning(f"{agent.name} tried to place a bomb" +
+                                        f"at {x} {y}, but there is one there already")
                     else:
-                        print(f"{agent.id} wants to place a bomb but cannot")
+                        log.info(f"{agent.name} wants to place a bomb but cannot")
                 elif cmd != "MOVE":
-                    raise ValueError(
-                        f"({agent.id}) invalid input. Expected 'MOVE x y |"
-                        + "BOMB x y, but found '{cmd} {x} {y}'")
+                    log.error(f"({agent.name}) invalid input. Expected 'MOVE" +
+                              f" x y | BOMB x y, but found '{cmd} {x} {y}'")
 
-                agent.last_action = f"{cmd} {agent.x} {agent.y}"
+                agent.last_action = f"{cmd} {x} {y}"
+                self.__move(agent, x, y)
 
-                if next_cell := self.__path((agent.y, agent.x), (y, x)):
-                    y, x = next_cell
-                    print(f"{agent.id} moves to ({x}, {y})")
-                    agent.x, agent.y = x, y
-                else:
-                    print(f"{agent.id} doesn't move")
+    def __move(self, agent: Agent, x: int, y: int):
+        if agent.x == x and agent.y == y:
+            return  # otherwise it loops between to neighboring cells
 
-        return new_bombs
+        # Using the MOVE command followed by grid coordinates will make the
+        # player attempt to move one cell closer to those coordinates. The
+        # player will automatically compute the shortest path within the grid
+        # to get to the target point. If the given coordinates are impossible
+        # to get to, the player will instead target the valid cell closest to
+        # the given coordinates.
+
+        # find the closest valid cell
+        while not self.walkable(x, y):
+            log.debug(f"destination not walkable ({x}, {y})")
+            if alternative := min(
+                    [(x + dx, y + dy) for dx, dy in Game.DIRECTIONS if self.walkable(x + dx, y + dy)],
+                    key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]),
+                    default=None):
+                x, y = alternative
+                log.debug(f"found alternative destination ({x}, {y})")
+            else:
+                break
+
+        if next_cell := self.__path((agent.y, agent.x), (y, x)):
+            agent.y, agent.x = next_cell
+            log.info(f"{agent.id} moves to ({agent.x}, {agent.y})")
+        else:
+            log.warning(f"{agent.id} cannot reach ({x}, {y})")
 
     def update(self, actions: dict[int, str]):
         """
@@ -218,10 +233,7 @@ class Game:
         Order: Tick bombs, Explode, Spawn Items, Resolve Player Actions, Update Visuals
         """
 
-        # In this league, players are not hurt by bombs (they are using practice explosives).
-
-        print(f"# Turn {self.turn + 1}")
-
+        log.info(f"# Turn {self.turn + 1}")
         self.__propagate_explosions(self.__tick_bombs())
 
         # update explosion visuals
@@ -229,12 +241,33 @@ class Game:
         self.explosion_visuals += [Explosion(x, y) for x, y in self.explosions if
                                    not any(v.x == x and v.y == y for v in self.explosion_visuals)]
 
-        new_bombs = self.__process_agent_actions(actions)
-        self.bombs += new_bombs
-        print()
+        self.__process_agent_actions(actions)
+        log.info("")
 
     def alive_agents(self) -> list[Agent]:
         return list(filter(lambda agent: agent.is_alive, self.agents))
 
     def unexploded_bombs(self) -> list[Bomb]:
         return list(filter(lambda bomb: not bomb.exploded, self.bombs))
+
+    @staticmethod
+    def in_bounds(x: int, y: int) -> bool:
+        return 0 <= x < Game.WIDTH and 0 <= y < Game.HEIGHT
+
+    def walkable(self, x: int, y: int) -> bool:
+        """Check if an agent can move at the cell (x, y)"""
+
+        if not Game.in_bounds(x, y):
+            return False
+
+        # [...] If a bomb is already occupying that cell, the player won't be
+        # able to move there.
+
+        # Players can occupy the same cell as a bomb only when the bomb
+        # appears on the same turn as when the player enters the cell.
+
+        bomb = next((b for b in self.bombs if b.x == x and b.y == y), None)
+        if bomb is not None and bomb.timer < Game.BOMB_LIFETIME:
+            return False
+
+        return self.grid[y][x] == CellType.FLOOR.value

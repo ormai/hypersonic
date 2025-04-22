@@ -28,26 +28,27 @@ def main():
     clock = pygame.time.Clock()
 
     for agent in game.agents:
-        agent.send(game.get_serialized_prelude(agent.id))
+        agent.send(game.prelude(agent.id))
 
     while game.running:
         if any(event.type == pygame.QUIT for event in pygame.event.get()):
             bail_out()
 
         for agent in game.agents:
-            agent.send(game.get_serialized_turn_state())
+            agent.send(game.turn_state())
 
         game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
         display.draw()
         clock.tick(4)  # simulation speed, updates per second
         game.turn += 1
-        if game.turn >= game.MAX_TURNS:
+        if game.turn >= Game.MAX_TURNS:
             game.running = False
 
     print("Game ended")
     for agent in game.agents:
         agent.terminate()
 
+    # TODO: wins the player who destroyed more bombs
     survivors = game.alive_agents()
     display.show_final_message(f"Winner: {survivors[0].id}" if len(survivors) == 1 else "Draw")
 
