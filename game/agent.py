@@ -7,6 +7,7 @@ from game.log import get_logger
 
 log = get_logger(__name__)
 
+
 class Agent:
     """
     An agent is a subprocess executing on its own. It gets the game state from
@@ -28,7 +29,7 @@ class Agent:
         self.id = agent_id
         self.x, self.y = start_cell
         self.bombs_left = 1
-        self.bombs_destroyed = 0
+        self.boxes_destroyed = 0
         self.bomb_range = 3  # Default range including center
         self.is_alive = True
         self.last_action = ""
@@ -93,6 +94,8 @@ class Agent:
             if line := self.process.stdout.readline():
                 return str(line).strip()
             raise ConnectionError(f"Received EOF from {self.name}. Probably crashed.")
+
+        # TODO: if this happens the agent should lose not crash the runner
         raise TimeoutError(f"{self.name} failed to provide output in time")
 
     def __read_stderr_non_blocking(self) -> str | None:

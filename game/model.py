@@ -93,7 +93,7 @@ class Game:
                     # destroy boxes hit by explosion
                     if self.grid[ny][nx] == CellType.BOX.value:
                         self.grid[ny][nx] = CellType.FLOOR.value
-                        self.agents[bomb.owner_id].bombs_destroyed += 1
+                        self.agents[bomb.owner_id].boxes_destroyed += 1
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby

@@ -51,10 +51,10 @@ def main():
         agent.terminate()
 
     display.show_final_message(
-        f"Winner: {max((agent for agent in game.agents), key=lambda a: a.bombs_destroyed).name}"
-        if len(set([agent.bombs_destroyed for agent in game.agents])) != 1
+        f"Winner: {max((agent for agent in game.agents), key=lambda a: a.boxes_destroyed).name}"
+        if len(set([agent.boxes_destroyed for agent in game.agents])) != 1
         else "Draw")
-    print(set(agent.bombs_destroyed for agent in game.agents), len(set(agent.bombs_destroyed for agent in game.agents)))
+    print(set(agent.boxes_destroyed for agent in game.agents), len(set(agent.boxes_destroyed for agent in game.agents)))
 
     while pygame.event.wait().type != pygame.QUIT:
         pass

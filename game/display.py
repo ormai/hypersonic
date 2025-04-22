@@ -1,97 +1,150 @@
-import pygame
 from game.model import Game
 from game.enums import CellType
 
+import pygame
+import os
+
 
 class Display:
-    CELL_SIZE = 100
-    FLOOR_COLOR = (150, 150, 150)
-    GRID_LINE_COLOR = (50, 50, 50)
-    WALL_COLOR = (80, 80, 80)
-    BOX_COLOR = (139, 69, 19)  # Saddle Brown
-    BOMB_COLOR = (30, 30, 30)
+    CELL_SIZE = 90
+    BOMB_SIZE = 72
+    SPOT_SIZE = 100
+    MAGENTA = (255, 0, 255)
     EXPLOSION_COLOR = (255, 165, 0)  # Orange
-    AGENT_COLORS = [
-        (0, 0, 255),  # Blue
-        (255, 0, 0),  # Red
-        (0, 255, 0),  # Green
-        (255, 255, 0),  # Yellow
+    WHITE = (255, 255, 255)
+    GRID_OFFSET = (702, 45)
+    RES = os.path.join("game", "resources")
+    TEXT_BACKGROUND = (0, 0, 0, 230)
+    PLAYER_COLORS = [
+        (255, 143, 22),
+        (255, 29, 92),
+        (34, 161, 228),
+        (222, 109, 223)
     ]
 
     def __init__(self, game: Game):
         pygame.init()
-        pygame.font.init()
         pygame.display.set_caption("Hypersonic")
 
         self.game = game
         self.width = Game.WIDTH * Display.CELL_SIZE
         self.height = Game.HEIGHT * Display.CELL_SIZE
         try:
-            self.font = pygame.font.Font("game/resources/JetBrainsMono-Regular.ttf", 20)
-            self.big_font = pygame.font.Font("game/resources/JetBrainsMono-Regular.ttf", 50)
+            jbm = os.path.join(Display.RES, "JetBrainsMono-Regular.ttf")
+            self.font = pygame.font.Font(jbm, 20)
+            self.medium_font = pygame.font.Font(jbm, 30)
+            self.big_font = pygame.font.Font(jbm, 50)
         except FileNotFoundError:
             self.font = pygame.font.Font(None, 20)
+            self.medium_font = pygame.font.Font(None, 30)
             self.big_font = pygame.font.Font(None, 50)
         self.text_height = self.font.size("A")[1]
-        self.screen = pygame.display.set_mode((self.width, self.height + self.text_height))
+
+        self.screen = pygame.display.set_mode((1920, 1080))  # declared before calling convert()
+
+        cell = pygame.Surface((Display.CELL_SIZE, Display.CELL_SIZE), pygame.SRCALPHA)
+
+        game_sheet = pygame.image.load(os.path.join(Display.RES, "game.png")).convert_alpha()
+        self.box_sprite = cell.copy()
+        self.box_sprite.blit(game_sheet, (0, 0), (264, 139, Display.CELL_SIZE, Display.CELL_SIZE))
+        self.bomb_sprites = tuple(cell.copy() for _ in range(4))
+        for bomb_sprite, pos in zip(self.bomb_sprites, ((246, 230), (0, 165), (176, 230), (73, 165))):
+            bomb_sprite.blit(game_sheet, (0, 0), (*pos, Display.BOMB_SIZE, Display.BOMB_SIZE))
+
+        self.player_spots = [
+            pygame.image.load(os.path.join(Display.RES, f"spot_player_0{i}.png")).convert_alpha()
+            for i in range(1, 5)
+        ]
 
     def draw(self) -> None:
+        self.background = pygame.image.load(os.path.join(Display.RES, "background.jpg")).convert()
+        self.draw()
+
+    def draw(self):
         """Draw grid and all entities"""
-        self.screen.fill(Display.FLOOR_COLOR)
+        self.screen.blit(self.background, (0, 0))
 
         self.__draw_grid()
         self.__draw_explosions()
         self.__draw_bombs()
         self.__draw_agents()
-
-        scores = ", ".join(f"{agent.name}: {agent.bombs_destroyed}" for agent in self.game.agents)
-        text = (f"Turn: {self.game.turn + 1:-03}/{Game.MAX_TURNS}, "
-                f"Alive: {len(self.game.alive_agents())}, {scores}")
-        pygame.draw.rect(self.screen, (0, 0, 0), pygame.rect.Rect(0, self.height, self.width, self.text_height))
-        self.screen.blit(self.font.render(text, True, (255, 255, 255), (0, 0, 0)), (5, self.height))
+        self.__draw_turn_info()
+        self.start_button.draw(self.screen)
 
         pygame.display.flip()
 
-    def __draw_grid(self) -> None:
+    def __draw_turn_info(self):
+        left, top, width = 165, 100, 300
+
+        turns_left_box = pygame.Surface((width, 40), pygame.SRCALPHA)
+        turns_left_box.fill(Display.TEXT_BACKGROUND)
+        turns_surface = self.medium_font.render(f"Rounds left {Game.MAX_TURNS - self.game.turn:3}", True, Display.WHITE)
+        turns_left_box.blit(turns_surface,
+                            turns_surface.get_rect(center=(width // 2, turns_left_box.get_height() // 2)))
+        self.screen.blit(turns_left_box, (left, top))
+
+        box_spacing = 20
+
+        top += box_spacing * 3 + turns_left_box.get_height()
+
+        for i in range(len(self.game.agents)):
+            player_surface = pygame.Surface((width, 130), pygame.SRCALPHA)
+            player_surface.fill(Display.TEXT_BACKGROUND)
+
+            line_spacing = 5
+            top_box_offset = 10
+            agent = self.game.agents[i]
+
+            name_surface = self.font.render(agent.name, True, Display.PLAYER_COLORS[i])
+            player_surface.blit(name_surface, name_surface.get_rect(topleft=(10, top_box_offset)))
+            top_box_offset += name_surface.get_height() + line_spacing + 20
+
+            score_surface = self.font.render(f"Boxes destroyed {agent.boxes_destroyed:>7}", True,
+                                             Display.PLAYER_COLORS[i])
+            player_surface.blit(score_surface, score_surface.get_rect(topleft=(10, top_box_offset)))
+            top_box_offset += score_surface.get_height() + line_spacing
+
+            bombs_surface = self.font.render(f"Bombs left {agent.bombs_left:>10}/1", True, Display.PLAYER_COLORS[i])
+            player_surface.blit(bombs_surface, bombs_surface.get_rect(topleft=(10, top_box_offset)))
+            top_box_offset += bombs_surface.get_height() + line_spacing
+
+            self.screen.blit(player_surface, (left, top))
+            top += player_surface.get_height() + box_spacing
+
+    def __draw_grid(self):
         for r in range(Game.HEIGHT):
             for c in range(Game.WIDTH):
-                rect = pygame.Rect(c * Display.CELL_SIZE, r * Display.CELL_SIZE, Display.CELL_SIZE, Display.CELL_SIZE)
                 if self.game.grid[r][c] == CellType.BOX.value:
-                    pygame.draw.rect(self.screen, Display.BOX_COLOR, rect)
-                pygame.draw.rect(self.screen, Display.GRID_LINE_COLOR, rect, 1)
+                    self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
+                                                       r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
 
-    def __draw_agents(self) -> None:
+    def __draw_agents(self):
         for agent in self.game.agents:
             if agent.is_alive:
                 # TODO: display agent message
-                px = agent.x * Display.CELL_SIZE + Display.CELL_SIZE // 2
-                py = agent.y * Display.CELL_SIZE + Display.CELL_SIZE // 2
-                pygame.draw.circle(self.screen, Display.AGENT_COLORS[agent.id % len(Display.AGENT_COLORS)], (px, py),
-                                   Display.CELL_SIZE // 3)
-                text = self.font.render(str(agent.id), True, (255, 255, 255))
+
+                px = agent.x * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[0]
+                py = agent.y * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[1]
+
+                self.screen.blit(self.player_spots[agent.id],
+                                 (px - Display.SPOT_SIZE // 2, py - Display.SPOT_SIZE // 2))
+
+                text = self.font.render(agent.name, True, (255, 255, 255))
                 text_rect = text.get_rect(center=(px, py))
                 self.screen.blit(text, text_rect)
 
-    def __draw_bombs(self) -> None:
+    def __draw_bombs(self):
+        cell_offset = (Display.CELL_SIZE - Display.BOMB_SIZE) // 2
         for bomb in self.game.bombs:
             if not bomb.exploded:
-                px = bomb.x * self.CELL_SIZE
-                py = bomb.y * self.CELL_SIZE
-                rect = pygame.Rect(
-                    px + Display.CELL_SIZE // 4,
-                    py + Display.CELL_SIZE // 4,
-                    Display.CELL_SIZE // 2,
-                    Display.CELL_SIZE // 2
-                )
-                pygame.draw.rect(self.screen, Display.BOMB_COLOR, rect)
-                text = self.font.render(str(bomb.timer), True, (255, 255, 255))
-                text_rect = text.get_rect(center=rect.center)
-                self.screen.blit(text, text_rect)
+                self.screen.blit(self.bomb_sprites[bomb.owner_id],
+                                 (bomb.x * self.CELL_SIZE + Display.GRID_OFFSET[0] + cell_offset,
+                                  bomb.y * self.CELL_SIZE + Display.GRID_OFFSET[1] + cell_offset))
 
-    def __draw_explosions(self) -> None:
+    def __draw_explosions(self):
         for explosion in self.game.explosion_visuals:
-            px = explosion.x * self.CELL_SIZE
-            py = explosion.y * self.CELL_SIZE
+            px = explosion.x * self.CELL_SIZE + Display.GRID_OFFSET[0]
+            py = explosion.y * self.CELL_SIZE + Display.GRID_OFFSET[1]
             # rect = pygame.Rect(px, py, cell_size, cell_size)
             # Fade effect based on timer
             alpha = max(0, min(255, int(255 * (explosion.timer / explosion.TICK_DURATION))))
