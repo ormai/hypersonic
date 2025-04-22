@@ -2,7 +2,7 @@ from game.enums import EntityType
 
 
 class Bomb:
-    def __init__(self, owner_id, x, y, timer, bomb_range):
+    def __init__(self, owner_id, x: int, y: int, timer: int, bomb_range: int):
         self.owner_id = owner_id
         self.x = x
         self.y = y
