@@ -44,8 +44,9 @@ class Display:
         self.__draw_bombs()
         self.__draw_agents()
 
+        scores = ", ".join(f"{agent.name}: {agent.bombs_destroyed}" for agent in self.game.agents)
         text = (f"Turn: {self.game.turn + 1:-03}/{Game.MAX_TURNS}, "
-                f"Alive: {len(self.game.alive_agents())}")
+                f"Alive: {len(self.game.alive_agents())}, {scores}")
         pygame.draw.rect(self.screen, (0, 0, 0), pygame.rect.Rect(0, self.height, self.width, self.text_height))
         self.screen.blit(self.font.render(text, True, (255, 255, 255), (0, 0, 0)), (5, self.height))
 

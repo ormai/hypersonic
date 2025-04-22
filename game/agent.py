@@ -1,8 +1,11 @@
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
-from game.enums import EntityType
 from time import time
 
+from game.enums import EntityType
+from game.log import get_logger
+
+log = get_logger(__name__)
 
 class Agent:
     """
@@ -25,14 +28,14 @@ class Agent:
         self.id = agent_id
         self.x, self.y = start_cell
         self.bombs_left = 1
+        self.bombs_destroyed = 0
         self.bomb_range = 3  # Default range including center
         self.is_alive = True
         self.last_action = ""
         self.message = ""
         self.name = f"Agent {agent_id}" if not name else name
-        self.cmd = cmd
         self.process: Popen | None = Popen(
-            self.cmd,
+            cmd,
             stdin=PIPE,
             stdout=PIPE,
             stderr=PIPE,
@@ -40,7 +43,7 @@ class Agent:
             bufsize=0,
             universal_newlines=True,
         )
-        print(f"Started {agent_id} (PID: {self.process.pid}): {' '.join(self.cmd)}")
+        log.debug(f"Started {agent_id} (PID: {self.process.pid}): {' '.join(cmd)}")
 
     def __terminated(self) -> bool:
         """Check if the underlying subprocess has terminated"""
@@ -78,10 +81,9 @@ class Agent:
         if self.__terminated() or self.process.stdout is None:
             raise ConnectionError(f"Cannot send data to agent {self.id}")
 
-        if __debug__ and (stderr := self.__read_stderr_non_blocking()):
-            print(f"--- Agent {self.id} stderr",
-                  stderr.strip(),
-                  f"---end of agent {self.id} stderr", sep="\n")
+        if stderr := self.__read_stderr_non_blocking():
+            log.debug(f"--- {self.name} stderr\n{stderr.strip()}\n" +
+                      f"--- end of {self.name} stderr")
 
         # Response time per turn ≤ 100 ms
         # Response time for the first turn ≤ 1000 ms
@@ -90,8 +92,8 @@ class Agent:
         while time() - start_time < timeout:
             if line := self.process.stdout.readline():
                 return str(line).strip()
-            raise ConnectionError(f"{self.id}'s stdout closed (EOF)")
-        raise TimeoutError(f"Agent {self.id} failed to provide output in time")
+            raise ConnectionError(f"Received EOF from {self.name}. Probably crashed.")
+        raise TimeoutError(f"{self.name} failed to provide output in time")
 
     def __read_stderr_non_blocking(self) -> str | None:
         if not self.__terminated() and self.process.stderr is not None:
@@ -102,7 +104,7 @@ class Agent:
                         output += line
                 return output
             except (IOError, OSError) as e:
-                print(f"Error reading stderr from agent {self.id}: {e}")
+                log.warning(f"Error reading stderr from agent {self.id}: {e}")
         return None
 
     def terminate(self) -> None:
@@ -112,12 +114,12 @@ class Agent:
                 self.process.terminate()
                 self.process.wait(timeout=0.5)  # Give it a moment to terminate
             except TimeoutExpired:
-                print(f"Agent {self.id} did not terminate gracefully, killing")
+                log.warning(f"Agent {self.id} did not terminate gracefully, killing")
                 self.process.kill()
             except Exception as e:
-                print(f"Error during agent {self.id} termination: {e}")
+                log.error(f"Error during agent {self.id} termination: {e}")
             self.process = None
-            print(f"Agent {self.id} terminated")
+            log.debug(f"Agent {self.id} terminated")
 
     def serialize(self) -> str:
         """Format the entity data to pass it to the agents via stdin"""
