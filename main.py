@@ -1,6 +1,6 @@
 """
-This is a runner for the Hypersonic game-challenge. The agents are provided
-as isolated programs run in a subprocess. The agents and the runner (this
+This is a runner for the Hypersonic challenge. The agents are provided
+as isolated programs run in subprocesses. The agents and the runner (this
 program) comunicate through the standard input stream and the standard
 output stream.
 
@@ -21,11 +21,13 @@ import pygame
 
 def main():
     game = Game([
-        [sys.executable, "game/agents/random_agent.py"],
-        [sys.executable, "game/agents/other_random_agent.py"]
+        ("Random1", [sys.executable, "game/agents/random_agent.py"]),
+        ("Random2", [sys.executable, "game/agents/other_random_agent.py"])
     ])
     display = Display(game)
     clock = pygame.time.Clock()
+
+    # TODO: start button here
 
     for agent in game.agents:
         agent.send(game.prelude(agent.id))
@@ -39,7 +41,7 @@ def main():
 
         game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
         display.draw()
-        clock.tick(4)  # simulation speed, updates per second
+        clock.tick(30)  # simulation speed, updates per second
         game.turn += 1
         if game.turn >= Game.MAX_TURNS:
             game.running = False
@@ -48,9 +50,11 @@ def main():
     for agent in game.agents:
         agent.terminate()
 
-    # TODO: wins the player who destroyed more bombs
-    survivors = game.alive_agents()
-    display.show_final_message(f"Winner: {survivors[0].id}" if len(survivors) == 1 else "Draw")
+    display.show_final_message(
+        f"Winner: {max((agent for agent in game.agents), key=lambda a: a.bombs_destroyed).name}"
+        if len(set([agent.bombs_destroyed for agent in game.agents])) != 1
+        else "Draw")
+    print(set(agent.bombs_destroyed for agent in game.agents), len(set(agent.bombs_destroyed for agent in game.agents)))
 
     while pygame.event.wait().type != pygame.QUIT:
         pass

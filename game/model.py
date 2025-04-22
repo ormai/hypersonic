@@ -1,17 +1,14 @@
 from random import choice
 from collections import deque
-from logging import getLogger, StreamHandler, INFO, DEBUG
-from sys import stdout
 
 from game.explosion import Explosion
 from game.bomb import Bomb
 from game.agent import Agent
 from game.enums import CellType
 from game.layouts import LAYOUTS
+from game.log import get_logger
 
-log = getLogger(__name__)
-log.addHandler(StreamHandler(stream=stdout))
-log.setLevel(DEBUG if __debug__ else INFO)
+log = get_logger(__name__)
 
 
 class Game:
@@ -29,13 +26,13 @@ class Game:
     BOMB_LIFETIME = 8
     DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 
-    def __init__(self, agent_commands: list[list[str]]):
+    def __init__(self, agents: list[tuple[str, list[str]]]):
         """
         Parameters:
-            agent_commands (list[str]): a list of commands to execute the agent subprocesses
+            agents (list[str]): a list of commands to execute the agent subprocesses
         """
 
-        assert len(agent_commands) == 2, "For now, the game is played with 2 players only."
+        assert len(agents) == 2, "For now, the game is played with 2 players only."
 
         self.running = True
         self.turn = 0
@@ -47,7 +44,7 @@ class Game:
         assert all(len(row) == Game.WIDTH for row in self.grid) and len(
             self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
 
-        self.agents = [Agent(i, Game.START_POSITIONS[i], cmd) for i, cmd in enumerate(agent_commands)]
+        self.agents = [Agent(i, Game.START_POSITIONS[i], cmd, name) for i, (name, cmd) in enumerate(agents)]
 
     def turn_state(self) -> str:
         """
@@ -85,9 +82,8 @@ class Game:
         queue = deque(exploding_bombs)
         while queue:
             bomb = queue.popleft()
-            newly_exploded_coordinates.add((bomb.x, bomb.y))  # Bomb location itself explodes
-
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:  # 4 directions
+            newly_exploded_coordinates.add((bomb.x, bomb.y))  # center of explosion
+            for dx, dy in Game.DIRECTIONS:  # 4 directions
                 for i in range(1, bomb.range):
                     nx, ny = bomb.x + dx * i, bomb.y + dy * i
                     if not self.in_bounds(nx, ny):
@@ -95,9 +91,9 @@ class Game:
                     newly_exploded_coordinates.add((nx, ny))
 
                     # destroy boxes hit by explosion
-                    # TODO: upgrade score
                     if self.grid[ny][nx] == CellType.BOX.value:
                         self.grid[ny][nx] = CellType.FLOOR.value
+                        self.agents[bomb.owner_id].bombs_destroyed += 1
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby
@@ -223,9 +219,9 @@ class Game:
 
         if next_cell := self.__path((agent.y, agent.x), (y, x)):
             agent.y, agent.x = next_cell
-            log.info(f"{agent.id} moves to ({agent.x}, {agent.y})")
+            log.info(f"{agent.name} moves to ({agent.x}, {agent.y})")
         else:
-            log.warning(f"{agent.id} cannot reach ({x}, {y})")
+            log.warning(f"{agent.name} cannot reach ({x}, {y})")
 
     def update(self, actions: dict[int, str]):
         """
