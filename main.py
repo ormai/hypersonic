@@ -8,16 +8,13 @@ The complete specification of the game and message formats can be found here
 
               https://www.codingame.com/ide/puzzle/hypersonic
 """
-
-from game.display import Display
-from game.model import Game
+from time import time
 import sys
 import pygame
 
+from game.display import Display
+from game.model import Game
 
-# FIXME: Non è chiaro al momento come passare stdin a un programma asp e ricevere stdout.
-# FIXME: Inoltre l'agente dovrebbe avere un loop infinito e non terminare.
-# FIXME: Questi dettagli solo lasciati da determinare.
 
 def main():
     game = Game([
@@ -27,44 +24,53 @@ def main():
     display = Display(game)
     clock = pygame.time.Clock()
 
-    # TODO: start button here
-
     for agent in game.agents:
         agent.send(game.prelude(agent.id))
 
-    while game.running:
-        if any(event.type == pygame.QUIT for event in pygame.event.get()):
-            bail_out()
+    model_update_rate = 4
+    model_update_interval = 1 / model_update_rate
+    model_accumulator = 0.0
+    frame_rate = 30
+    last_time = time()
 
-        for agent in game.agents:
-            agent.send(game.turn_state())
+    paused = True
+    while True:
+        current_time = time()
+        delta_time = current_time - last_time
+        last_time = current_time
 
-        game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
+        for event in pygame.event.get():
+            match event.type:
+                case pygame.QUIT:
+                    pygame.quit()
+                    print("Exiting. Bye!")
+                    sys.exit()
+                case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
+                    if display.start_button.is_clicked(event.pos, event.button == 1):
+                        paused = False
+                    if display.pause_button.is_clicked(event.pos, event.button == 1):
+                        paused = True
+                case pygame.MOUSEMOTION:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if display.start_button.is_hover(
+                        event.pos) or display.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
+
+        model_accumulator += delta_time
+        while model_accumulator >= model_update_interval:
+            if game.running:
+                if not paused:
+                    for agent in game.agents:
+                        agent.send(game.turn_state())
+
+                    game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
+
+                if game.turn >= Game.MAX_TURNS:
+                    for agent in game.agents:
+                        agent.terminate()
+                    game.running = False
+            model_accumulator -= model_update_interval
+
         display.draw()
-        clock.tick(30)  # simulation speed, updates per second
-        game.turn += 1
-        if game.turn >= Game.MAX_TURNS:
-            game.running = False
-
-    print("Game ended")
-    for agent in game.agents:
-        agent.terminate()
-
-    display.show_final_message(
-        f"Winner: {max((agent for agent in game.agents), key=lambda a: a.boxes_destroyed).name}"
-        if len(set([agent.boxes_destroyed for agent in game.agents])) != 1
-        else "Draw")
-    print(set(agent.boxes_destroyed for agent in game.agents), len(set(agent.boxes_destroyed for agent in game.agents)))
-
-    while pygame.event.wait().type != pygame.QUIT:
-        pass
-    bail_out()
-
-
-def bail_out():
-    pygame.quit()
-    print("Exiting. Bye!")
-    sys.exit()
+        clock.tick(frame_rate)
 
 
 if __name__ == "__main__":

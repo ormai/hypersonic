@@ -1,8 +1,9 @@
-from game.model import Game
-from game.enums import CellType
-
+from enum import Enum
 import pygame
 import os
+
+from game.model import Game
+from game.enums import CellType
 
 
 class Display:
@@ -26,9 +27,9 @@ class Display:
         pygame.init()
         pygame.display.set_caption("Hypersonic")
 
+        self.winner_info: str | None = None
+
         self.game = game
-        self.width = Game.WIDTH * Display.CELL_SIZE
-        self.height = Game.HEIGHT * Display.CELL_SIZE
         try:
             jbm = os.path.join(Display.RES, "JetBrainsMono-Regular.ttf")
             self.font = pygame.font.Font(jbm, 20)
@@ -56,7 +57,9 @@ class Display:
             for i in range(1, 5)
         ]
 
-    def draw(self) -> None:
+        self.start_button = Button("Start", 190, 900, 100, 40, self.medium_font)
+        self.pause_button = Button("Pause", 335, 900, 100, 40, self.medium_font)
+
         self.background = pygame.image.load(os.path.join(Display.RES, "background.jpg")).convert()
         self.draw()
 
@@ -70,6 +73,15 @@ class Display:
         self.__draw_agents()
         self.__draw_turn_info()
         self.start_button.draw(self.screen)
+        self.pause_button.draw(self.screen)
+
+        if self.game.turn >= Game.MAX_TURNS:
+            if self.winner_info is None:
+                self.winner_info = (
+                    f"Winner: {max((agent for agent in self.game.agents), key=lambda a: a.boxes_destroyed).name}"
+                    if len(set([agent.boxes_destroyed for agent in self.game.agents])) != 1
+                    else "Draw")
+            self.show_final_message(self.winner_info)
 
         pygame.display.flip()
 
@@ -152,10 +164,80 @@ class Display:
             pygame.draw.rect(surface, (*self.EXPLOSION_COLOR, alpha), surface.get_rect())
             self.screen.blit(surface, (px, py))
 
-    def show_final_message(self, message: str) -> None:
+    def show_final_message(self, message: str):
         win_surface = self.big_font.render(message, True, (255, 215, 0))
-        win_rect = win_surface.get_rect(center=(self.width // 2, self.height // 2))
+        win_rect = win_surface.get_rect(center=(self.screen.get_width() // 2, self.screen.get_height() // 2))
         bg_rect = win_rect.inflate(20, 20)
         pygame.draw.rect(self.screen, (0, 0, 0, 180), bg_rect)  # Semi-transparent black bg
         self.screen.blit(win_surface, win_rect)
-        pygame.display.flip()
+
+    @staticmethod
+    def get_sprite(sheet: pygame.Surface, frame, width, height, _rows, cols) -> pygame.Surface:
+        # TODO: this one may be useful to process player sprites
+        """Extracts a single sprite from a sprite sheet.
+
+        Args:
+            sheet: The loaded sprite sheet Surface.
+            frame: The index of the sprite to extract (starting from 0, going row by row).
+            width: The width of each sprite.
+            height: The height of each sprite.
+            _rows: The number of rows in the sprite sheet.
+            cols: The number of columns in the sprite sheet.
+
+        Returns:
+            A pygame.Surface containing the extracted sprite.
+        """
+        row = frame // cols
+        col = frame % cols
+        x = col * width
+        y = row * height
+        sprite = pygame.Surface((width, height), pygame.SRCALPHA)  # Create a transparent surface
+        sprite.blit(sheet, (0, 0), (x, y, width, height))
+        return sprite
+
+
+class Button:
+    BACKGROUND = (20, 21, 22)
+    HOVER_BACKGROUND = (40, 150, 90)
+    CLICK_BACKGROUND = (180, 80, 40)
+
+    def __init__(self, text: str, left: int, top: int, width: int, height: int, font: pygame.font.Font):
+        self.text = text
+        self.rect = pygame.Rect(left, top, width + 20, height + 10)
+        self.text_surface = font.render(self.text, True, Display.WHITE)
+        self.text_rect = self.text_surface.get_rect(center=self.rect.center)
+        self.state = Button.State.NORMAL
+
+    def draw(self, screen: pygame.Surface):
+        match self.state:
+            case Button.State.NORMAL:
+                color = Button.BACKGROUND
+            case Button.State.HOVER:
+                color = Button.HOVER_BACKGROUND
+            case Button.State.CLICKED:
+                color = Button.CLICK_BACKGROUND
+            case _:
+                raise ValueError(f"Invalid button state: {self.state}")
+        pygame.draw.rect(screen, color, self.rect)
+        screen.blit(self.text_surface, self.text_rect)
+
+    def is_clicked(self, pos: tuple[int, int], clicked: bool) -> bool:
+        if clicked and self.rect.collidepoint(pos):
+            self.state = Button.State.CLICKED
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            return True
+        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        self.state = Button.State.NORMAL
+        return False
+
+    def is_hover(self, pos: tuple[int, int]) -> bool:
+        if self.rect.collidepoint(pos):
+            self.state = Button.State.HOVER
+            return True
+        self.state = Button.State.NORMAL
+        return False
+
+    class State(Enum):
+        NORMAL = 0
+        HOVER = 1
+        CLICKED = 2
