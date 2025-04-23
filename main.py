@@ -11,15 +11,17 @@ The complete specification of the game and message formats can be found here
 from time import time
 import sys
 import pygame
+import os
 
 from game.display import Display
 from game.model import Game
 
 
 def main():
+    agent_script = os.path.join("game", "agents", "random_agent.py")
     game = Game([
-        ("Random1", [sys.executable, "game/agents/random_agent.py"]),
-        ("Random2", [sys.executable, "game/agents/other_random_agent.py"])
+        ("Random1", [sys.executable, agent_script]),
+        ("Random2", [sys.executable, agent_script])
     ])
     display = Display(game)
     clock = pygame.time.Clock()
@@ -58,8 +60,9 @@ def main():
         while model_accumulator >= model_update_interval:
             if game.running:
                 if not paused:
+                    turn_state = game.turn_state()
                     for agent in game.agents:
-                        agent.send(game.turn_state())
+                        agent.send(turn_state)
 
                     game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
 
