@@ -238,6 +238,7 @@ class Game:
                                    not any(v.x == x and v.y == y for v in self.explosion_visuals)]
 
         self.__process_agent_actions(actions)
+        self.turn += 1
         log.info("")
 
     def alive_agents(self) -> list[Agent]:
