@@ -132,18 +132,17 @@ class Display:
 
     def __draw_agents(self):
         for agent in self.game.agents:
-            if agent.is_alive:
-                # TODO: display agent message
+            # TODO: display agent message
 
-                px = agent.x * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[0]
-                py = agent.y * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[1]
+            px = agent.x * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[0]
+            py = agent.y * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[1]
 
-                self.screen.blit(self.player_spots[agent.id],
-                                 (px - Display.SPOT_SIZE // 2, py - Display.SPOT_SIZE // 2))
+            self.screen.blit(self.player_spots[agent.id],
+                             (px - Display.SPOT_SIZE // 2, py - Display.SPOT_SIZE // 2))
 
-                text = self.font.render(agent.name, True, (255, 255, 255))
-                text_rect = text.get_rect(center=(px, py))
-                self.screen.blit(text, text_rect)
+            text = self.font.render(agent.name, True, (255, 255, 255))
+            text_rect = text.get_rect(center=(px, py))
+            self.screen.blit(text, text_rect)
 
     def __draw_bombs(self):
         cell_offset = (Display.CELL_SIZE - Display.BOMB_SIZE) // 2
