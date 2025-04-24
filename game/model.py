@@ -26,7 +26,7 @@ class Game:
     BOMB_LIFETIME = 8
     DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 
-    def __init__(self, agents: list[tuple[str, list[str]]]):
+    def __init__(self, agents: list[Agent]):
         """
         Parameters:
             agents (list[str]): a list of commands to execute the agent subprocesses
@@ -37,6 +37,7 @@ class Game:
         self.running = True
         self.turn = 0
         self.bombs: list[Bomb] = []
+        self.agents = agents
         self.explosions: set[tuple[int, int]] = set()  # Set of (x, y) tuples for current explosions
         self.explosion_visuals: list[Explosion] = []
         self.grid = [list(row) for row in choice(LAYOUTS)]
@@ -44,14 +45,12 @@ class Game:
         assert all(len(row) == Game.WIDTH for row in self.grid) and len(
             self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
 
-        self.agents = [Agent(i, Game.START_POSITIONS[i], cmd, name) for i, (name, cmd) in enumerate(agents)]
-
     def turn_state(self) -> str:
         """
         Generates the input string for all agents, representing the game
         state at the beginning of the turn.
         """
-        entities = [e.serialize() for e in self.alive_agents() + self.unexploded_bombs()]
+        entities = [e.serialize() for e in self.agents + self.bombs]
         return f"{'\n'.join(''.join(row) for row in self.grid)}\n{len(entities)}\n{'\n'.join(entities)}"
 
     @staticmethod
@@ -164,39 +163,38 @@ class Game:
         """
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
-            if agent.is_alive:
-                cmd, x, y = self.__parse_action(agent_id, action)
-                if cmd == "BOMB":
-                    # bomb placement and movement happen in the same turn
-                    if agent.bombs_left > 0:
-                        if not any(b.x == agent.x and b.y == agent.y
-                                   for b in self.bombs):
-                            self.bombs.append(
-                                Bomb(
-                                    agent.id,
-                                    agent.x,
-                                    agent.y,
-                                    Game.BOMB_LIFETIME,
-                                    agent.bomb_range,
-                                )
+            cmd, x, y = self.__parse_action(agent_id, action)
+            if cmd == "BOMB":
+                # bomb placement and movement happen in the same turn
+                if agent.bombs_left > 0:
+                    if not any(b.x == agent.x and b.y == agent.y
+                               for b in self.bombs):
+                        self.bombs.append(
+                            Bomb(
+                                agent.id,
+                                agent.x,
+                                agent.y,
+                                Game.BOMB_LIFETIME,
+                                agent.bomb_range,
                             )
-                            agent.bombs_left -= 1
-                            log.info(f"{agent.name} places a bomb at {agent.x} {agent.y}")
-                        else:
-                            log.warning(f"{agent.name} tried to place a bomb" +
-                                        f"at {x} {y}, but there is one there already")
+                        )
+                        agent.bombs_left -= 1
+                        log.info(f"{agent.name} places a bomb at {agent.x} {agent.y}")
                     else:
-                        log.info(f"{agent.name} wants to place a bomb but cannot")
-                elif cmd != "MOVE":
-                    log.error(f"({agent.name}) invalid input. Expected 'MOVE" +
-                              f" x y | BOMB x y, but found '{cmd} {x} {y}'")
+                        log.warning(f"{agent.name} tried to place a bomb" +
+                                    f"at {x} {y}, but there is one there already")
+                else:
+                    log.info(f"{agent.name} wants to place a bomb but cannot")
+            elif cmd != "MOVE":
+                log.error(f"({agent.name}) invalid input. Expected 'MOVE" +
+                          f" x y | BOMB x y, but found '{cmd} {x} {y}'")
 
-                agent.last_action = f"{cmd} {x} {y}"
-                self.__move(agent, x, y)
+            agent.last_action = f"{cmd} {x} {y}"
+            self.__move(agent, x, y)
 
     def __move(self, agent: Agent, x: int, y: int):
         if agent.x == x and agent.y == y:
-            return  # otherwise it loops between to neighboring cells
+            return  # otherwise it loops between two neighboring cells
 
         # Using the MOVE command followed by grid coordinates will make the
         # player attempt to move one cell closer to those coordinates. The
@@ -240,12 +238,6 @@ class Game:
         self.__process_agent_actions(actions)
         self.turn += 1
         log.info("")
-
-    def alive_agents(self) -> list[Agent]:
-        return list(filter(lambda agent: agent.is_alive, self.agents))
-
-    def unexploded_bombs(self) -> list[Bomb]:
-        return list(filter(lambda bomb: not bomb.exploded, self.bombs))
 
     @staticmethod
     def in_bounds(x: int, y: int) -> bool:

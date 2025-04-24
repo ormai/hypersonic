@@ -1,10 +1,6 @@
 """
-This is a runner for the Hypersonic challenge. The agents are provided
-as isolated programs run in subprocesses. The agents and the runner (this
-program) comunicate through the standard input stream and the standard
-output stream.
-
-The complete specification of the game and message formats can be found here
+This is a runner for the Hypersonic challenge.
+The complete specification of the game can be found here
 
               https://www.codingame.com/ide/puzzle/hypersonic
 """
@@ -15,13 +11,14 @@ import os
 
 from game.display import Display
 from game.model import Game
+from game.agent import ExecutableAgent
 
 
 def main():
     agent_script = os.path.join("game", "agents", "random_agent.py")
     game = Game([
-        ("Random1", [sys.executable, agent_script]),
-        ("Random2", [sys.executable, agent_script])
+        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, agent_script], "Random1"),
+        ExecutableAgent(1, Game.START_POSITIONS[1], [sys.executable, agent_script], "Random2")
     ])
     display = Display(game)
     clock = pygame.time.Clock()
