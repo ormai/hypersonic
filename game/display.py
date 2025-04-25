@@ -3,7 +3,7 @@ import pygame
 import os
 
 from game.model import Game
-from game.enums import CellType
+from game.entities import CellType
 
 
 class Display:
