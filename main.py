@@ -11,20 +11,18 @@ import os
 
 from game.display import Display
 from game.model import Game
-from game.agent import ExecutableAgent
+from game.entities import ExecutableAgent, AspAgent
 
 
 def main():
     agent_script = os.path.join("game", "agents", "random_agent.py")
     game = Game([
         ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, agent_script], "Random1"),
-        ExecutableAgent(1, Game.START_POSITIONS[1], [sys.executable, agent_script], "Random2")
+        #ExecutableAgent(1, Game.START_POSITIONS[1], [sys.executable, agent_script], "Random2")
+        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("game", "encodings", "test")], "AspAgent")
     ])
     display = Display(game)
     clock = pygame.time.Clock()
-
-    for agent in game.agents:
-        agent.send(game.prelude(agent.id))
 
     model_update_rate = 4
     model_update_interval = 1 / model_update_rate
@@ -53,21 +51,25 @@ def main():
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if display.start_button.is_hover(
                         event.pos) or display.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
 
-        model_accumulator += delta_time
-        while model_accumulator >= model_update_interval:
-            if game.running:
+        if game.running:
+            model_accumulator += delta_time
+            while model_accumulator >= model_update_interval:
                 if not paused:
-                    turn_state = game.turn_state()
                     for agent in game.agents:
-                        agent.send(turn_state)
+                        agent.send_turn_state(game.agents, game.bombs, game.grid)
 
-                    game.update({agent.id: agent.receive(game.turn) for agent in game.agents})
+                    actions = {agent.id: agent.receive(game.turn) for agent in game.agents}
+                    for agent in game.agents:
+                        if agent.timed_out:
+                            # TODO: handle defeat
+                            game.running = False
+                    game.update(actions)
 
                 if game.turn >= Game.MAX_TURNS:
                     for agent in game.agents:
                         agent.terminate()
                     game.running = False
-            model_accumulator -= model_update_interval
+                model_accumulator -= model_update_interval
 
         display.draw()
         clock.tick(frame_rate)

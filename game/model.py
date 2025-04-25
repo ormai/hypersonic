@@ -2,9 +2,7 @@ from random import choice
 from collections import deque
 
 from game.explosion import Explosion
-from game.bomb import Bomb
-from game.agent import Agent
-from game.enums import CellType
+from game.entities import Agent, Bomb, CellType
 from game.layouts import LAYOUTS
 from game.log import get_logger
 
@@ -35,40 +33,30 @@ class Game:
         assert len(agents) == 2, "For now, the game is played with 2 players only."
 
         self.running = True
-        self.turn = 0
-        self.bombs: list[Bomb] = []
-        self.agents = agents
+        self.__turn = 0
+        self.__bombs: list[Bomb] = []
+        self.__agents = agents
         self.explosions: set[tuple[int, int]] = set()  # Set of (x, y) tuples for current explosions
         self.explosion_visuals: list[Explosion] = []
-        self.grid = [list(row) for row in choice(LAYOUTS)]
+        self.__grid = [list(row) for row in choice(LAYOUTS)]
 
-        assert all(len(row) == Game.WIDTH for row in self.grid) and len(
-            self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
+        for agent in self.__agents:
+            agent.send_prelude(Game.WIDTH, Game.HEIGHT)
 
-    def turn_state(self) -> str:
-        """
-        Generates the input string for all agents, representing the game
-        state at the beginning of the turn.
-        """
-        entities = [e.serialize() for e in self.agents + self.bombs]
-        return f"{'\n'.join(''.join(row) for row in self.grid)}\n{len(entities)}\n{'\n'.join(entities)}"
-
-    @staticmethod
-    def prelude(agent_id: int) -> str:
-        """Generates the initial input string for the agent."""
-        return f"{Game.WIDTH} {Game.HEIGHT} {agent_id}"
+        assert all(len(row) == Game.WIDTH for row in self.__grid) and len(
+            self.__grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
 
     def __tick_bombs(self) -> list[Bomb]:
         """Ticks all active bombs and returns the ones that explode in this turn"""
         exploding: list[Bomb] = []
         remaining: list[Bomb] = []
-        for bomb in self.bombs:
+        for bomb in self.__bombs:
             if bomb.tick():
                 exploding.append(bomb)
-                self.agents[bomb.owner_id].bombs_left += 1  # give back to agent
+                self.__agents[bomb.owner_id].bombs_left += 1  # give back to agent
             else:
                 remaining.append(bomb)
-        self.bombs = remaining
+        self.__bombs = remaining
         return exploding
 
     def __propagate_explosions(self, exploding_bombs: list[Bomb]):
@@ -90,19 +78,19 @@ class Game:
                     newly_exploded_coordinates.add((nx, ny))
 
                     # destroy boxes hit by explosion
-                    if self.grid[ny][nx] == CellType.BOX.value:
-                        self.grid[ny][nx] = CellType.FLOOR.value
-                        self.agents[bomb.owner_id].boxes_destroyed += 1
+                    if self.__grid[ny][nx] == CellType.BOX.value:
+                        self.__grid[ny][nx] = CellType.FLOOR.value
+                        self.__agents[bomb.owner_id].boxes_destroyed += 1
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby
-                    for other_bomb in self.bombs:
+                    for other_bomb in self.__bombs:
                         if not other_bomb.exploded and other_bomb.x == nx and other_bomb.y == ny:
                             if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
                                 other_bomb.timer = 0  # detonate immediately
                                 other_bomb.exploded = True  # Mark for removal later
                                 # bomb exploded so return it to the agent
-                                self.agents[bomb.owner_id].bombs_left += 1
+                                self.__agents[bomb.owner_id].bombs_left += 1
                                 if other_bomb not in queue:
                                     queue.append(other_bomb)
                                 processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
@@ -111,16 +99,16 @@ class Game:
         self.explosions = newly_exploded_coordinates
 
         # Remove chain-reacted bombs from main list
-        self.bombs = [bomb for bomb in self.bombs if not bomb.exploded]
+        self.__bombs = [bomb for bomb in self.__bombs if not bomb.exploded]
 
     def __parse_action(self, agent_id: int, action: str) -> tuple[str, int, int]:
         pack = action.split(maxsplit=3)
         if len(pack) > 3:
             cmd, x, y, msg = pack
-            self.agents[agent_id].message = msg
+            self.__agents[agent_id].message = msg
         elif len(pack) == 3:
             cmd, x, y = pack
-            self.agents[agent_id].message = ""
+            self.__agents[agent_id].message = ""
         else:
             raise ValueError(f"Invalid command, expected was 'BOMB x y' or 'MOVE x y', found '{action}'")
         return cmd.upper(), int(x), int(y)
@@ -162,14 +150,14 @@ class Game:
             list[bombs]: new bombs placed
         """
         for agent_id, action in actions.items():
-            agent = self.agents[agent_id]
+            agent = self.__agents[agent_id]
             cmd, x, y = self.__parse_action(agent_id, action)
             if cmd == "BOMB":
                 # bomb placement and movement happen in the same turn
                 if agent.bombs_left > 0:
                     if not any(b.x == agent.x and b.y == agent.y
-                               for b in self.bombs):
-                        self.bombs.append(
+                               for b in self.__bombs):
+                        self.__bombs.append(
                             Bomb(
                                 agent.id,
                                 agent.x,
@@ -227,7 +215,7 @@ class Game:
         Order: Tick bombs, Explode, Spawn Items, Resolve Player Actions, Update Visuals
         """
 
-        log.info(f"# Turn {self.turn + 1}")
+        log.info(f"# Turn {self.__turn + 1}")
         self.__propagate_explosions(self.__tick_bombs())
 
         # update explosion visuals
@@ -236,7 +224,7 @@ class Game:
                                    not any(v.x == x and v.y == y for v in self.explosion_visuals)]
 
         self.__process_agent_actions(actions)
-        self.turn += 1
+        self.__turn += 1
         log.info("")
 
     @staticmethod
@@ -255,8 +243,24 @@ class Game:
         # Players can occupy the same cell as a bomb only when the bomb
         # appears on the same turn as when the player enters the cell.
 
-        bomb = next((b for b in self.bombs if b.x == x and b.y == y), None)
+        bomb = next((b for b in self.__bombs if b.x == x and b.y == y), None)
         if bomb is not None and bomb.timer < Game.BOMB_LIFETIME:
             return False
 
-        return self.grid[y][x] == CellType.FLOOR.value
+        return self.__grid[y][x] == CellType.FLOOR.value
+
+    @property
+    def grid(self) -> list[list[str]]:
+        return self.__grid
+
+    @property
+    def turn(self) -> int:
+        return self.__turn
+
+    @property
+    def agents(self) -> list[Agent]:
+        return self.__agents
+
+    @property
+    def bombs(self) -> list[Bomb]:
+        return self.__bombs
