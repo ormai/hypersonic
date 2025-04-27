@@ -23,6 +23,7 @@ class Game:
     ]
     BOMB_LIFETIME = 8
     DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    DIRECTIONS_MAPPING = dict(zip(DIRECTIONS, ("down", "up", "right", "left")))
 
     def __init__(self, agents: list[Agent]):
         """
@@ -70,7 +71,7 @@ class Game:
         while queue:
             bomb = queue.popleft()
             newly_exploded_coordinates.add((bomb.x, bomb.y))  # center of explosion
-            for dx, dy in Game.DIRECTIONS:  # 4 directions
+            for dx, dy in Game.DIRECTIONS:
                 for i in range(1, bomb.range):
                     nx, ny = bomb.x + dx * i, bomb.y + dy * i
                     if not self.in_bounds(nx, ny):
@@ -169,7 +170,7 @@ class Game:
                         agent.bombs_left -= 1
                         log.info(f"{agent.name} places a bomb at {agent.x} {agent.y}")
                     else:
-                        log.warning(f"{agent.name} tried to place a bomb" +
+                        log.warning(f"{agent.name} tried to place a bomb " +
                                     f"at {x} {y}, but there is one there already")
                 else:
                     log.info(f"{agent.name} wants to place a bomb but cannot")
@@ -182,6 +183,7 @@ class Game:
 
     def __move(self, agent: Agent, x: int, y: int):
         if agent.x == x and agent.y == y:
+            agent.state = Agent.State.IDLE
             return  # otherwise it loops between two neighboring cells
 
         # Using the MOVE command followed by grid coordinates will make the
@@ -204,9 +206,14 @@ class Game:
                 break
 
         if next_cell := self.__path((agent.y, agent.x), (y, x)):
-            agent.y, agent.x = next_cell
+            ny, nx = next_cell
+            agent.direction = Game.DIRECTIONS_MAPPING[(nx - agent.x, ny - agent.y)]
+            agent.previous_x, agent.previous_y = agent.x, agent.y
+            agent.state = Agent.State.MOVE
+            agent.x, agent.y = nx, ny
             log.info(f"{agent.name} moves to ({agent.x}, {agent.y})")
         else:
+            agent.state = Agent.State.IDLE
             log.warning(f"{agent.name} cannot reach ({x}, {y})")
 
     def update(self, actions: dict[int, str]):
