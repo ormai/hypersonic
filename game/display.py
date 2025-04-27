@@ -1,4 +1,5 @@
 from enum import Enum
+from threading import Timer
 import pygame
 import os
 
@@ -38,6 +39,13 @@ class Display:
         self.start_button = Button("Start", 190, 900, 100, 40, self.medium_font)
         self.pause_button = Button("Stop", 335, 900, 100, 40, self.medium_font)
         self.player_animations = [PlayerAnimation(self, i) for i in range(len(game.agents))]
+
+        # ready in one second
+        def set_ready():
+            self.ready = True
+
+        self.ready = False
+        Timer(1, set_ready).start()
 
         self.draw(0, True)
 
@@ -129,7 +137,8 @@ class Display:
         for player_animation in self.player_animations:
             player_animation.draw(turn_progress, paused)
         self.__draw_turn_info()
-        self.start_button.draw(self.screen)
+        if self.ready:
+            self.start_button.draw(self.screen)
         self.pause_button.draw(self.screen)
 
         if self.game.turn >= Game.MAX_TURNS:
