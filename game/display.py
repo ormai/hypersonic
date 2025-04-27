@@ -3,13 +3,17 @@ import pygame
 import os
 
 from game.model import Game
-from game.entities import CellType
+from game.entities import CellType, Agent
 
 
 class Display:
+    """Draws the Game on the screen"""
+
+    FRAME_RATE = 60
     CELL_SIZE = 90
     BOMB_SIZE = 72
     SPOT_SIZE = 100
+    PLAYER_SIZE = 128
     MAGENTA = (255, 0, 255)
     EXPLOSION_COLOR = (255, 165, 0)  # Orange
     WHITE = (255, 255, 255)
@@ -24,12 +28,20 @@ class Display:
     ]
 
     def __init__(self, game: Game):
+        self.winner_info: str | None = None
+        self.game = game
+
         pygame.init()
         pygame.display.set_caption("Hypersonic")
+        self.screen = pygame.display.set_mode((1920, 1080))  # before calling convert()
+        self.__load_assets()
+        self.start_button = Button("Start", 190, 900, 100, 40, self.medium_font)
+        self.pause_button = Button("Stop", 335, 900, 100, 40, self.medium_font)
+        self.player_animations = [PlayerAnimation(self, i) for i in range(len(game.agents))]
 
-        self.winner_info: str | None = None
+        self.draw(0, True)
 
-        self.game = game
+    def __load_assets(self):
         try:
             jbm = os.path.join(Display.RES, "JetBrainsMono-Regular.ttf")
             self.font = pygame.font.Font(jbm, 20)
@@ -39,38 +51,83 @@ class Display:
             self.font = pygame.font.Font(None, 20)
             self.medium_font = pygame.font.Font(None, 30)
             self.big_font = pygame.font.Font(None, 50)
-        self.text_height = self.font.size("A")[1]
 
-        self.screen = pygame.display.set_mode((1920, 1080))  # declared before calling convert()
-
-        cell = pygame.Surface((Display.CELL_SIZE, Display.CELL_SIZE), pygame.SRCALPHA)
+        self.background = pygame.image.load(os.path.join(Display.RES, "background.jpg")).convert()
 
         game_sheet = pygame.image.load(os.path.join(Display.RES, "game.png")).convert_alpha()
-        self.box_sprite = cell.copy()
-        self.box_sprite.blit(game_sheet, (0, 0), (264, 139, Display.CELL_SIZE, Display.CELL_SIZE))
-        self.bomb_sprites = tuple(cell.copy() for _ in range(4))
-        for bomb_sprite, pos in zip(self.bomb_sprites, ((246, 230), (0, 165), (176, 230), (73, 165))):
-            bomb_sprite.blit(game_sheet, (0, 0), (*pos, Display.BOMB_SIZE, Display.BOMB_SIZE))
-
+        self.box_sprite = sprite(game_sheet, 264, 139, Display.CELL_SIZE, Display.CELL_SIZE)
+        self.bomb_sprites = [sprite(game_sheet, x, y, Display.BOMB_SIZE, Display.BOMB_SIZE)
+                             for x, y in ((246, 230), (0, 165), (176, 230), (73, 165))]
         self.player_spots = [
             pygame.image.load(os.path.join(Display.RES, f"spot_player_0{i}.png")).convert_alpha()
             for i in range(1, 5)
         ]
 
-        self.start_button = Button("Start", 190, 900, 100, 40, self.medium_font)
-        self.pause_button = Button("Pause", 335, 900, 100, 40, self.medium_font)
+        sheet = pygame.image.load(os.path.join(Display.RES, "players.png")).convert_alpha()
+        v_space, h_space, size = 28, 12, Display.PLAYER_SIZE
+        self.player_sprites = [
+            {
+                Agent.State.IDLE: {
+                    "down": [sprite(sheet, 2614, 2354 + i * size * i + v_space * i, height=140) for i in range(2)]
+                            + [sprite(sheet, size * i + h_space * i, 2666, height=140) for i in range(11)],
+                    "up": [sprite(sheet, 3186, 170 + size * i + v_space * i) for i in range(14)],
+                    "right": [sprite(sheet, 1504, 19 + size * i + v_space * i) for i in range(10)]
+                             + [sprite(sheet, 928 + size * i + h_space * i, 1423) for i in range(4)],
+                    "left": [sprite(sheet, 2754, 1100)]
+                            + [sprite(sheet, 1914, 1568 + size * i + v_space * i) for i in range(3)]
+                            + [sprite(sheet, size * i + h_space * i, 2036) for i in range(9)]
+                },
+                Agent.State.MOVE: {
+                    "down": [sprite(sheet, 5 + size * i + h_space * i, 1714, height=160) for i in range(12)]
+                            + [sprite(sheet, 1637, 1082 + size * i + 34 * i, height=160) for i in range(4)],
+                    "up": [sprite(sheet, 1640, -14 + size * i + 30 * i, height=160) for i in range(7)]
+                          + [sprite(sheet, 145 + size * i + h_space * i, 1552, height=160) for i in range(10)],
+                    "right": [sprite(sheet, 1920, 8 + size * i + v_space * i) for i in range(10)]
+                             + [sprite(sheet, 850 + size * i + h_space * i, 1880) for i in range(7)],
+                    "left": [sprite(sheet, size * i + h_space * i, 1880) for i in range(6)]
+                            + [sprite(sheet, 1773, 165 + size * i + v_space * i) for i in range(11)]
+                }
+            },
+            {
+                Agent.State.IDLE: {
+                    "down": [sprite(sheet, 2194, 12 + size * i + v_space * i, height=140) for i in range(13)]
+                            + [sprite(sheet, 2054, 1884 + size * i + v_space * i, height=140) for i in range(2)],
+                    "up": [sprite(sheet, 2066, 10 + size * i + v_space * i) for i in range(12)]
+                          + [sprite(sheet, 1552 + size * i + h_space * i, 2038) for i in range(3)],
+                    "right": [sprite(sheet, 2344, 18 + size * i + v_space * i) for i in range(13)]
+                             + [sprite(sheet, 1970 + size * i + h_space * i, 2202) for i in range(2)],
+                    "left": [sprite(sheet, size * i + h_space * i, 2190) for i in range(14)]
+                            + [sprite(sheet, 2194, 2034)]
+                },
+                Agent.State.MOVE: {
+                    "down": [sprite(sheet, 2104 + i * size + h_space * i, 2338, height=160) for i in range(2)]
+                            + [sprite(sheet, 2480, i * size + v_space * i, height=160) for i in range(15)],
+                    "up": [sprite(sheet, 2340, 2030 + size * i + i * v_space, height=160) for i in range(2)]
+                          + [sprite(sheet, 5 + size * i + h_space * i, 2340, height=160) for i in range(15)],
+                    "right": [sprite(sheet, 2252 + i * size + i * h_space, 2500) for i in range(2)]
+                             + [sprite(sheet, 2626, 5 + i * size + i * v_space) for i in range(15)],
+                    "left": [sprite(sheet, i * size + i * h_space, 2505) for i in range(16)]
+                            + [sprite(sheet, 2473, 2349)]
+                }
+            }
+        ]
 
-        self.background = pygame.image.load(os.path.join(Display.RES, "background.jpg")).convert()
-        self.draw()
+    def handle(self, event: pygame.event.Event):
+        """Handles any interesting event"""
+        match event.type:
+            case pygame.MOUSEMOTION:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self.start_button.is_hover(
+                    event.pos) or self.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
 
-    def draw(self):
-        """Draw grid and all entities"""
+    def draw(self, turn_progress: float, paused: bool):
+        """Draw grid and all entities, gets called at every frame"""
         self.screen.blit(self.background, (0, 0))
 
         self.__draw_grid()
         self.__draw_explosions()
         self.__draw_bombs()
-        self.__draw_agents()
+        for player_animation in self.player_animations:
+            player_animation.draw(turn_progress, paused)
         self.__draw_turn_info()
         self.start_button.draw(self.screen)
         self.pause_button.draw(self.screen)
@@ -130,20 +187,6 @@ class Display:
                     self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
                                                        r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
 
-    def __draw_agents(self):
-        for agent in self.game.agents:
-            # TODO: display agent message
-
-            px = agent.x * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[0]
-            py = agent.y * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[1]
-
-            self.screen.blit(self.player_spots[agent.id],
-                             (px - Display.SPOT_SIZE // 2, py - Display.SPOT_SIZE // 2))
-
-            text = self.font.render(agent.name, True, (255, 255, 255))
-            text_rect = text.get_rect(center=(px, py))
-            self.screen.blit(text, text_rect)
-
     def __draw_bombs(self):
         cell_offset = (Display.CELL_SIZE - Display.BOMB_SIZE) // 2
         for bomb in self.game.bombs:
@@ -171,34 +214,68 @@ class Display:
         self.screen.blit(win_surface, win_rect)
 
     @staticmethod
-    def get_sprite(sheet: pygame.Surface, frame, width, height, _rows, cols) -> pygame.Surface:
-        # TODO: this one may be useful to process player sprites
-        """Extracts a single sprite from a sprite sheet.
+    def cell_to_px(x: int, y: int) -> tuple[int, int]:
+        """Translate a pair of cell indexes to screen coordinates in pixels"""
+        nx = x * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[0]
+        ny = y * Display.CELL_SIZE + Display.CELL_SIZE // 2 + Display.GRID_OFFSET[1]
+        return nx, ny
 
-        Args:
-            sheet: The loaded sprite sheet Surface.
-            frame: The index of the sprite to extract (starting from 0, going row by row).
-            width: The width of each sprite.
-            height: The height of each sprite.
-            _rows: The number of rows in the sprite sheet.
-            cols: The number of columns in the sprite sheet.
 
-        Returns:
-            A pygame.Surface containing the extracted sprite.
-        """
-        row = frame // cols
-        col = frame % cols
-        x = col * width
-        y = row * height
-        sprite = pygame.Surface((width, height), pygame.SRCALPHA)  # Create a transparent surface
-        sprite.blit(sheet, (0, 0), (x, y, width, height))
-        return sprite
+def sprite(sheet: pygame.Surface, x: int, y: int, width=128, height=128) -> pygame.Surface:
+    """Get the sprite from the sheet at (x, y)"""
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    surface.blit(sheet, (0, 0), (x, y, width, height))
+    return surface
+
+
+def lerp(start: int, end: int, progress: float) -> float:
+    """https://en.wikipedia.org/wiki/Linear_interpolation"""
+    return start + (end - start) * progress
+
+
+class PlayerAnimation:
+    def __init__(self, display: Display, agent_id: int):
+        self.screen = display.screen
+        self.spot = display.player_spots[agent_id]
+        self.sprites = display.player_sprites[agent_id]
+        self.agent = display.game.agents[agent_id]
+        self.frame = 0  # one of the loaded image sprites
+        self.frame_count = 0
+        self.img = self.sprites[self.agent.state][self.agent.direction][self.frame]
+        self.font = display.medium_font
+
+        name_text = self.font.render(self.agent.name, True, Display.PLAYER_COLORS[self.agent.id])
+        self.name = pygame.Surface((name_text.get_width() + 15, name_text.get_height() + 10), pygame.SRCALPHA)
+        self.name.fill(Display.TEXT_BACKGROUND)
+        self.name.blit(name_text, name_text.get_rect(center=(self.name.get_width() // 2, self.name.get_height() // 2)))
+
+    def draw(self, turn_progress: float, paused: bool):
+        x, y = Display.cell_to_px(self.agent.x, self.agent.y)
+
+        if not paused and self.agent.state == Agent.State.MOVE:
+            src_x, src_y = Display.cell_to_px(self.agent.previous_x, self.agent.previous_y)
+            x = lerp(src_x, x, turn_progress)
+            y = lerp(src_y, y, turn_progress)
+
+        self.frame_count += 1
+        speed = Display.FRAME_RATE / len(self.sprites[self.agent.state][self.agent.direction])
+        if self.frame_count >= speed:
+            self.frame_count = 0
+            state = Agent.State.IDLE if paused else self.agent.state
+            self.frame = (self.frame + 1) % len(self.sprites[state][self.agent.direction])
+            self.img = self.sprites[state][self.agent.direction][self.frame]
+
+        self.screen.blit(self.spot, (x - self.spot.get_width() // 2, y - self.spot.get_height() // 2))
+        self.screen.blit(self.img, (x - self.img.get_width() // 2, y - self.img.get_height() // 2))
+
+        if paused:
+            self.screen.blit(self.name, self.name.get_rect(center=(x, y)))
 
 
 class Button:
     BACKGROUND = (20, 21, 22)
-    HOVER_BACKGROUND = (40, 150, 90)
-    CLICK_BACKGROUND = (180, 80, 40)
+    HOVER_BACKGROUND = (100, 40, 20)
+    CLICK_BACKGROUND = (240, 80, 40)
 
     def __init__(self, text: str, left: int, top: int, width: int, height: int, font: pygame.font.Font):
         self.text = text
@@ -223,9 +300,7 @@ class Button:
     def is_clicked(self, pos: tuple[int, int], clicked: bool) -> bool:
         if clicked and self.rect.collidepoint(pos):
             self.state = Button.State.CLICKED
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
             return True
-        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
         self.state = Button.State.NORMAL
         return False
 

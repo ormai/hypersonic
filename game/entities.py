@@ -73,6 +73,11 @@ class Agent(ABC):
         self.message = ""
         self.name = f"Agent {agent_id}" if not name else name
 
+        # Those 3 are used by the Display to animate the player
+        self.state = Agent.State.IDLE
+        self.direction = "down" if self.x == 0 else "up"
+        self.previous_x, self.previous_y = start_cell
+
     @abstractmethod
     def send_turn_state(self, agents: list["Agent"], bombs: list[Bomb], grid: list[list[str]]):
         pass
@@ -94,6 +99,10 @@ class Agent(ABC):
 
     def terminate(self):
         pass
+
+    class State(Enum):
+        IDLE = "idle"
+        MOVE = "move"
 
 
 class ExecutableAgent(Agent):
@@ -290,10 +299,6 @@ class AspAgent(Agent):
 
         self.turn_state_program = ASPInputProgram()
         self.handler.add_program(self.turn_state_program)  # key = 0
-
-        # necessary to remove the turn state input from the handler
-        # 0 are the files, 1 is the prelude, 2 is the turn state
-        # self.turn_state_program_index = 2
 
         files = ASPInputProgram()
         self.handler.add_program(files)  # key = 1
