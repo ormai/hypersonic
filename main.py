@@ -41,8 +41,9 @@ def main():
                     print("Exiting. Bye!")
                     return
                 case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
-                    paused = (paused and not display.start_button.is_clicked(event.pos, event.button == 1)
-                              or not paused and display.pause_button.is_clicked(event.pos, event.button == 1))
+                    if display.ready:
+                        paused = (display.ready and paused and not display.start_button.is_clicked(event.pos, event.button == 1)
+                                  or not paused and display.pause_button.is_clicked(event.pos, event.button == 1))
                 case _:
                     display.handle(event)
 
