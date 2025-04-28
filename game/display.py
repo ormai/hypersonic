@@ -47,7 +47,7 @@ class Display:
         self.ready = False
         Timer(1, set_ready).start()
 
-        self.draw(0, True)
+        self.draw(1, 0, True)
 
     def __load_assets(self):
         try:
@@ -64,6 +64,9 @@ class Display:
 
         game_sheet = pygame.image.load(os.path.join(Display.RES, "game.png")).convert_alpha()
         self.box_sprite = sprite(game_sheet, 264, 139, Display.CELL_SIZE, Display.CELL_SIZE)
+
+        self.lens_flares = [pygame.image.load(os.path.join(Display.RES, f"lens_flare_player_0{i}.png")).convert_alpha()
+                            for i in range(1, 5)]
         self.bomb_sprites = [sprite(game_sheet, x, y, Display.BOMB_SIZE, Display.BOMB_SIZE)
                              for x, y in ((246, 230), (0, 165), (176, 230), (73, 165))]
         self.player_spots = [
@@ -120,6 +123,13 @@ class Display:
             }
         ]
 
+        sheet = pygame.image.load(os.path.join(Display.RES, "explosion.png")).convert_alpha()
+        self.fire = [sprite(sheet, 256 * j, 256 * i, 256, 256) for i in range(8) for j in range(8)]
+
+        self.explosion_speed = Display.FRAME_RATE / len(self.fire)
+        self.explosion_frame = 0
+        self.explosion_frame_count = 0.0
+
     def handle(self, event: pygame.event.Event):
         """Handles any interesting event"""
         match event.type:
@@ -132,8 +142,9 @@ class Display:
         self.screen.blit(self.background, (0, 0))
 
         self.__draw_grid()
-        self.__draw_explosions()
-        self.__draw_bombs()
+        if not paused:
+            self.__draw_explosions()
+        self.__draw_bombs(turn_progress, paused)
         for player_animation in self.player_animations:
             player_animation.draw(turn_progress, paused)
         self.__draw_turn_info(delta_time)
@@ -151,12 +162,12 @@ class Display:
 
         pygame.display.flip()
 
-    def __draw_turn_info(self):
+    def __draw_turn_info(self, delta_time: float):
         left, top, width = 165, 100, 300
 
         turns_left_box = pygame.Surface((width, 40), pygame.SRCALPHA)
         turns_left_box.fill(Display.TEXT_BACKGROUND)
-        turns_surface = self.medium_font.render(f"Rounds left {Game.MAX_TURNS - self.game.turn:3}", True, Display.WHITE)
+        turns_surface = self.medium_font.render(f"Turns left: {Game.MAX_TURNS - self.game.turn:3}", True, Display.WHITE)
         turns_left_box.blit(turns_surface,
                             turns_surface.get_rect(center=(width // 2, turns_left_box.get_height() // 2)))
         self.screen.blit(turns_left_box, (left, top))
@@ -207,30 +218,48 @@ class Display:
         for r in range(Game.HEIGHT):
             for c in range(Game.WIDTH):
                 if self.game.grid[r][c] == CellType.BOX.value:
-                    self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
-                                                       r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
                     rect = self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
                                                               r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
+                    if __debug__:
                         pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
-    def __draw_bombs(self):
-        cell_offset = (Display.CELL_SIZE - Display.BOMB_SIZE) // 2
+    def __draw_bombs(self, turn_progress: float, paused: bool):
         for bomb in self.game.bombs:
-            if not bomb.exploded:
-                self.screen.blit(self.bomb_sprites[bomb.owner_id],
-                                 (bomb.x * self.CELL_SIZE + Display.GRID_OFFSET[0] + cell_offset,
-                                  bomb.y * self.CELL_SIZE + Display.GRID_OFFSET[1] + cell_offset))
+            if paused or bomb.timer > 1:
+                if turn_progress < 0.5:
+                    factor = turn_progress * 2  # 0 -> 0.5 maps to 0 -> 1.0
+                else:
+                    factor = 2 - (turn_progress * 2)  # 0.5 -> 1.0 maps to 1.0 -> 0
+                factor = lerp(0.95, 1.0, ease_in_out(factor))
+            else:
+                factor = lerp(0.95, 1.25, turn_progress)
+            width, height = map(lambda d: d * factor, self.bomb_sprites[bomb.owner_id].get_size())
+
+            pos = self.cell_to_px(bomb.x, bomb.y)
+            img = pygame.transform.smoothscale(self.bomb_sprites[bomb.owner_id], (width, height))
+            rect = self.screen.blit(img, tuple(map(lambda a: a - width // 2, pos)))
+
+            # flare
+            if turn_progress > 0.9 or bomb.timer == 1:
+                self.screen.blit(self.lens_flares[bomb.owner_id], (
+                    pos[0] - self.lens_flares[bomb.owner_id].get_width() // 2,
+                    pos[1] - self.lens_flares[bomb.owner_id].get_height() // 2 - 22 * factor))
+
+            if __debug__:
+                pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
     def __draw_explosions(self):
-        for explosion in self.game.explosion_visuals:
-            px = explosion.x * self.CELL_SIZE + Display.GRID_OFFSET[0]
-            py = explosion.y * self.CELL_SIZE + Display.GRID_OFFSET[1]
-            # rect = pygame.Rect(px, py, cell_size, cell_size)
-            # Fade effect based on timer
-            alpha = max(0, min(255, int(255 * (explosion.timer / explosion.TICK_DURATION))))
-            surface = pygame.Surface((Display.CELL_SIZE, Display.CELL_SIZE), pygame.SRCALPHA)
-            pygame.draw.rect(surface, (*self.EXPLOSION_COLOR, alpha), surface.get_rect())
-            self.screen.blit(surface, (px, py))
+        self.explosion_frame_count += 1
+        if self.explosion_frame_count >= self.explosion_speed:
+            self.explosion_frame_count = 0.0
+            self.explosion_frame = (self.explosion_frame + 1) % len(self.fire)
+        for x, y in self.game.explosions:
+            x, y = Display.cell_to_px(x, y)
+            img = self.fire[self.explosion_frame]
+            rect = self.screen.blit(img,
+                                    (x - img.get_width() // 2, y - img.get_height() // 2 - img.get_height() * 0.05))
+            if __debug__:
+                pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
     def show_final_message(self, message: str):
         win_surface = self.big_font.render(message, True, (255, 215, 0))
@@ -254,9 +283,14 @@ def sprite(sheet: pygame.Surface, x: int, y: int, width=128, height=128) -> pyga
     return surface
 
 
-def lerp(start: int, end: int, progress: float) -> float:
+def lerp(start: int | float, end: int | float, progress: float) -> float:
     """https://en.wikipedia.org/wiki/Linear_interpolation"""
     return start + (end - start) * progress
+
+
+def ease_in_out(t):
+    """Smoother interpolation"""
+    return t * t * (3 - 2 * t)
 
 
 class PlayerAnimation:
@@ -280,8 +314,7 @@ class PlayerAnimation:
 
         if not paused and self.agent.state == Agent.State.MOVE:
             src_x, src_y = Display.cell_to_px(self.agent.previous_x, self.agent.previous_y)
-            x = lerp(src_x, x, turn_progress)
-            y = lerp(src_y, y, turn_progress)
+            x, y = lerp(src_x, x, turn_progress), lerp(src_y, y, turn_progress)
 
         self.frame_count += 1
         speed = Display.FRAME_RATE / len(self.sprites[self.agent.state][self.agent.direction])
@@ -313,15 +346,12 @@ class Button:
         self.state = Button.State.NORMAL
 
     def draw(self, screen: pygame.Surface):
+        color = Button.BACKGROUND
         match self.state:
-            case Button.State.NORMAL:
-                color = Button.BACKGROUND
             case Button.State.HOVER:
                 color = Button.HOVER_BACKGROUND
             case Button.State.CLICKED:
                 color = Button.CLICK_BACKGROUND
-            case _:
-                raise ValueError(f"Invalid button state: {self.state}")
         pygame.draw.rect(screen, color, self.rect)
         screen.blit(self.text_surface, self.text_rect)
 
