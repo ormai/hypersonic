@@ -1,7 +1,6 @@
 from random import choice
 from collections import deque
 
-from game.explosion import Explosion
 from game.entities import Agent, Bomb, CellType
 from game.layouts import LAYOUTS
 from game.log import get_logger
@@ -37,8 +36,7 @@ class Game:
         self.__turn = 0
         self.__bombs: list[Bomb] = []
         self.__agents = agents
-        self.explosions: set[tuple[int, int]] = set()  # Set of (x, y) tuples for current explosions
-        self.explosion_visuals: list[Explosion] = []
+        self.explosions: set[tuple[int, int]] = set()
         self.__grid = [list(row) for row in choice(LAYOUTS)]
 
         for agent in self.__agents:
@@ -61,7 +59,6 @@ class Game:
         return exploding
 
     def __propagate_explosions(self, exploding_bombs: list[Bomb]):
-        self.explosions.clear()  # previous explosions
         newly_exploded_coordinates: set[tuple[int, int]] = set()
         processed_bomb_coordinates: set[tuple[int, int]] = set((b.x, b.y) for b in exploding_bombs)
 
@@ -224,11 +221,6 @@ class Game:
 
         log.info(f"# Turn {self.__turn + 1}")
         self.__propagate_explosions(self.__tick_bombs())
-
-        # update explosion visuals
-        self.explosion_visuals = [v for v in self.explosion_visuals if v.tick()]
-        self.explosion_visuals += [Explosion(x, y) for x, y in self.explosions if
-                                   not any(v.x == x and v.y == y for v in self.explosion_visuals)]
 
         self.__process_agent_actions(actions)
         self.__turn += 1

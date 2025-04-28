@@ -15,6 +15,12 @@ from game.entities import ExecutableAgent, AspAgent
 
 
 def main():
+    model_update_rate = 2  # turns per second
+    assert model_update_rate < 10, "Logic update rate must give the agents at least 100ms per turn"
+    model_update_interval = 1 / model_update_rate
+    model_accumulator = 0.0
+    last_time = time()
+
     game = Game([
         ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("game", "agents", "random_agent.py")],
                         "Random"),
@@ -22,11 +28,6 @@ def main():
     ])
     display = Display(game)
     clock = pygame.time.Clock()
-
-    model_update_rate = 3
-    model_update_interval = 1 / model_update_rate
-    model_accumulator = 0.0
-    last_time = time()
 
     paused = True
     while True:
@@ -61,6 +62,7 @@ def main():
                             # TODO: handle defeat
                             game.running = False
                     game.update(actions)
+                    display.explosion_frame = 0
 
                 if game.turn >= Game.MAX_TURNS:
                     for agent in game.agents:
