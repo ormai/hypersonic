@@ -127,7 +127,7 @@ class Display:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self.start_button.is_hover(
                     event.pos) or self.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
 
-    def draw(self, turn_progress: float, paused: bool):
+    def draw(self, delta_time: float, turn_progress: float, paused: bool):
         """Draw grid and all entities, gets called at every frame"""
         self.screen.blit(self.background, (0, 0))
 
@@ -136,7 +136,7 @@ class Display:
         self.__draw_bombs()
         for player_animation in self.player_animations:
             player_animation.draw(turn_progress, paused)
-        self.__draw_turn_info()
+        self.__draw_turn_info(delta_time)
         if self.ready:
             self.start_button.draw(self.screen)
         self.pause_button.draw(self.screen)
@@ -189,12 +189,29 @@ class Display:
             self.screen.blit(player_surface, (left, top))
             top += player_surface.get_height() + box_spacing
 
+        if __debug__:
+            for i, agent in enumerate(self.game.agents):
+                top += 40 * i
+                self.screen.blit(self.font.render(f"{agent.name} x: {agent.x}, y: {agent.y}", True, Display.MAGENTA,
+                                                  Display.TEXT_BACKGROUND), (left, top))
+            top += 40
+            self.screen.blit(
+                self.font.render(f"Boxes left: {sum(row.count(CellType.BOX.value) for row in self.game.grid)}", True,
+                                 Display.MAGENTA, Display.TEXT_BACKGROUND), (left, top))
+            top += 40
+            self.screen.blit(
+                self.font.render(f"Frame rate: {1 / delta_time:.0f}", True, Display.MAGENTA, Display.TEXT_BACKGROUND),
+                (left, top))
+
     def __draw_grid(self):
         for r in range(Game.HEIGHT):
             for c in range(Game.WIDTH):
                 if self.game.grid[r][c] == CellType.BOX.value:
                     self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
                                                        r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
+                    rect = self.screen.blit(self.box_sprite, (c * Display.CELL_SIZE + Display.GRID_OFFSET[0],
+                                                              r * Display.CELL_SIZE + Display.GRID_OFFSET[1]))
+                        pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
     def __draw_bombs(self):
         cell_offset = (Display.CELL_SIZE - Display.BOMB_SIZE) // 2
@@ -275,7 +292,9 @@ class PlayerAnimation:
             self.img = self.sprites[state][self.agent.direction][self.frame]
 
         self.screen.blit(self.spot, (x - self.spot.get_width() // 2, y - self.spot.get_height() // 2))
-        self.screen.blit(self.img, (x - self.img.get_width() // 2, y - self.img.get_height() // 2))
+        rect = self.screen.blit(self.img, (x - self.img.get_width() // 2, y - self.img.get_height() // 2))
+        if __debug__:
+            pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
         if paused:
             self.screen.blit(self.name, self.name.get_rect(center=(x, y)))
