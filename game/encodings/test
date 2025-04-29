@@ -1,3 +1,19 @@
-placeBomb(5, 6).
+testRand(X, Y) :- &rand(0, W; X), &rand(0, H; Y), gridSize(W, H).
+
+placeBomb(X, Y) :- testRand(X, Y), player(ID, _, _, 1), myId(ID).
+move(X, Y) :- testRand(X, Y), player(ID, _, _, 0), myId(ID).
+
+:- gridSize(W, H), W<>13, H<>11.
+
+:- bombRange(R), R<>3.
+
+atLeastOneBox :- box(_, _).
+:- not atLeastOneBox.
+
+atLeastOneCell :- cell(_, _).
+:- not atLeastOneCell.
+
+myPlayerExists :- myId(ID), player(ID, _, _, _).
+:- not myPlayerExists.
 
 :~ dead. [1000@1]
