@@ -16,7 +16,7 @@ from embasp.languages.predicate import Predicate
 from embasp.platforms.desktop.desktop_handler import DesktopHandler
 from embasp.specializations.dlv2.desktop.dlv2_desktop_service import DLV2DesktopService
 
-from game.log import get_logger
+from .log import get_logger
 
 log = get_logger(__name__)
 
@@ -39,7 +39,6 @@ class Bomb:
         self.y = y
         self.timer = timer
         self.range = bomb_range
-        self.exploded = False
 
     def __repr__(self):
         return f"Bomb(owner={self.owner_id}, pos=({self.x},{self.y}), timer={self.timer}, range={self.range})"
@@ -70,11 +69,10 @@ class Agent(ABC):
         self.timed_out = False
         self.boxes_destroyed = 0
         self.bomb_range = 3  # Default range including center
-        self.last_action = ""
         self.message = ""
         self.name = f"Agent {agent_id}" if not name else name
 
-        # Those 3 are used by the Display to animate the player
+        # These are used by the Display to animate the player
         self.state = Agent.State.IDLE
         self.direction = "down" if self.x == 0 else "up"
         self.previous_x, self.previous_y = start_cell
@@ -299,7 +297,7 @@ class AspAgent(Agent):
         elif sys.platform == 'darwin':
             dlv_lib = '.max_5'
 
-        self.handler = DesktopHandler(DLV2DesktopService(os.path.join("game", "lib", dlv_lib)))
+        self.handler = DesktopHandler(DLV2DesktopService(os.path.join("lib", dlv_lib)))
         self.handler.add_option(OptionDescriptor("--silent"))
         self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2"))
         self.handler.add_option(OptionDescriptor("--printonlyoptimum"))
@@ -389,7 +387,7 @@ class AspAgent(Agent):
                 return f"MOVE {atom.x} {atom.y}"
             else:
                 return f"BOMB {atom.x} {atom.y}"
-        raise ValueError(f"Invalid ASP output")
+        raise ValueError(f"Invalid ASP output") # TODO: this is a lose condition
 
     def __timeout(self):
         with self.lock:
