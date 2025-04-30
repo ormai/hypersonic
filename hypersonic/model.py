@@ -1,9 +1,9 @@
 from random import choice
 from collections import deque
 
-from game.entities import Agent, Bomb, CellType
-from game.layouts import LAYOUTS
-from game.log import get_logger
+from .entities import Agent, Bomb, CellType
+from .layouts import LAYOUTS
+from .log import get_logger
 
 log = get_logger(__name__)
 
@@ -36,31 +36,31 @@ class Game:
 
         self.running = True
         self.__turn = 0
-        self.__bombs: list[Bomb] = []
+        self.bombs: list[Bomb] = []
         self.__agents = agents
         self.explosions: set[tuple[int, int]] = set()
-        self.__grid = [list(row) for row in choice(LAYOUTS)]
+        self.grid = [list(row) for row in choice(LAYOUTS)]
 
         for agent in self.__agents:
             agent.send_prelude(Game.WIDTH, Game.HEIGHT)
 
-        assert all(len(row) == Game.WIDTH for row in self.__grid) and len(
-            self.__grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
+        assert all(len(row) == Game.WIDTH for row in self.grid) and len(
+            self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
 
-    def __tick_bombs(self) -> list[Bomb]:
+    def tick_bombs(self) -> list[Bomb]:
         """Ticks all active bombs and returns the ones that explode in this turn"""
         exploding: list[Bomb] = []
         remaining: list[Bomb] = []
-        for bomb in self.__bombs:
+        for bomb in self.bombs:
             if bomb.tick():
                 exploding.append(bomb)
                 self.__agents[bomb.owner_id].bombs_left += 1  # give back to agent
             else:
                 remaining.append(bomb)
-        self.__bombs = remaining
+        self.bombs = remaining
         return exploding
 
-    def __propagate_explosions(self, exploding_bombs: list[Bomb]):
+    def propagate_explosions(self, exploding_bombs: list[Bomb]):
         newly_exploded_coordinates: set[tuple[int, int]] = set()
         processed_bomb_coordinates: set[tuple[int, int]] = set((b.x, b.y) for b in exploding_bombs)
 
@@ -78,17 +78,16 @@ class Game:
                     newly_exploded_coordinates.add((nx, ny))
 
                     # destroy boxes hit by explosion
-                    if self.__grid[ny][nx] == CellType.BOX.value:
-                        self.__grid[ny][nx] = CellType.FLOOR.value
+                    if self.grid[ny][nx] == CellType.BOX.value:
+                        self.grid[ny][nx] = CellType.FLOOR.value
                         self.__agents[bomb.owner_id].boxes_destroyed += 1
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby
-                    for other_bomb in self.__bombs:
-                        if not other_bomb.exploded and other_bomb.x == nx and other_bomb.y == ny:
+                    for other_bomb in self.bombs:
+                        if other_bomb.timer > 0 and other_bomb.x == nx and other_bomb.y == ny:
                             if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
                                 other_bomb.timer = 0  # detonate immediately
-                                other_bomb.exploded = True  # Mark for removal later
                                 # bomb exploded so return it to the agent
                                 self.__agents[other_bomb.owner_id].bombs_left += 1
                                 if other_bomb not in queue:
@@ -99,9 +98,9 @@ class Game:
         self.explosions = newly_exploded_coordinates
 
         # Remove chain-reacted bombs from main list
-        self.__bombs = [bomb for bomb in self.__bombs if not bomb.exploded]
+        self.bombs = [bomb for bomb in self.bombs if bomb.timer > 0]
 
-    def __parse_action(self, agent_id: int, action: str) -> tuple[str, int, int]:
+    def parse_action(self, agent_id: int, action: str) -> tuple[str, int, int]:
         pack = action.split(maxsplit=3)
         if len(pack) > 3:
             cmd, x, y, msg = pack
@@ -113,7 +112,7 @@ class Game:
             raise ValueError(f"Invalid command, expected was 'BOMB x y' or 'MOVE x y', found '{action}'")
         return cmd.upper(), int(x), int(y)
 
-    def __path(self, src: tuple[int, int], dst: tuple[int, int]) -> tuple[int, int] | None:
+    def path(self, src: tuple[int, int], dst: tuple[int, int]) -> tuple[int, int] | None:
         """
         Find the short walkable path in the map
 
@@ -122,7 +121,7 @@ class Game:
             dst: A tuple (row, col) representing the end of the path
 
         Returns:
-            The next cell (row, col) after src in the path to dst or None if
+            The next cell (row, col) after hypersonic in the path to dst or None if
             there is no path or no next cell
         """
         queue = deque([(src, [src])])  # (current_cell, path_so_far)
@@ -142,7 +141,7 @@ class Game:
                     queue.append(((row, col), new_path))
         return None
 
-    def __process_agent_actions(self, actions: dict[int, str]):
+    def process_agent_actions(self, actions: dict[int, str]):
         """
         Takes raw action strings parses them and acts upon them
 
@@ -151,13 +150,13 @@ class Game:
         """
         for agent_id, action in actions.items():
             agent = self.__agents[agent_id]
-            cmd, x, y = self.__parse_action(agent_id, action)
+            cmd, x, y = self.parse_action(agent_id, action)
             if cmd == "BOMB":
                 # bomb placement and movement happen in the same turn
                 if agent.bombs_left > 0:
                     if not any(b.x == agent.x and b.y == agent.y
-                               for b in self.__bombs):
-                        self.__bombs.append(
+                               for b in self.bombs):
+                        self.bombs.append(
                             Bomb(
                                 agent.id,
                                 agent.x,
@@ -176,11 +175,9 @@ class Game:
             elif cmd != "MOVE":
                 log.error(f"({agent.name}) invalid input. Expected 'MOVE" +
                           f" x y | BOMB x y, but found '{cmd} {x} {y}'")
+            self.move(agent, x, y)
 
-            agent.last_action = f"{cmd} {x} {y}"
-            self.__move(agent, x, y)
-
-    def __move(self, agent: Agent, x: int, y: int):
+    def move(self, agent: Agent, x: int, y: int):
         if agent.x == x and agent.y == y:
             agent.state = Agent.State.IDLE
             return  # otherwise it loops between two neighboring cells
@@ -213,7 +210,7 @@ class Game:
                        key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]), default=None)
             log.debug(f"alternative destination is ({x}, {y})")
 
-        if next_cell := self.__path((agent.y, agent.x), (y, x)):
+        if next_cell := self.path((agent.y, agent.x), (y, x)):
             ny, nx = next_cell
             agent.direction = Game.DIRECTIONS_MAPPING[(nx - agent.x, ny - agent.y)]
             agent.previous_x, agent.previous_y = agent.x, agent.y
@@ -231,9 +228,9 @@ class Game:
         """
 
         log.info(f"# Turn {self.__turn + 1}")
-        self.__propagate_explosions(self.__tick_bombs())
+        self.propagate_explosions(self.tick_bombs())
 
-        self.__process_agent_actions(actions)
+        self.process_agent_actions(actions)
         self.__turn += 1
         log.info("")
 
@@ -253,15 +250,11 @@ class Game:
         # Players can occupy the same cell as a bomb only when the bomb
         # appears on the same turn as when the player enters the cell.
 
-        bomb = next((b for b in self.__bombs if b.x == x and b.y == y), None)
+        bomb = next((b for b in self.bombs if b.x == x and b.y == y), None)
         if bomb is not None and bomb.timer < Game.BOMB_LIFETIME:
             return False
 
-        return self.__grid[y][x] == CellType.FLOOR.value
-
-    @property
-    def grid(self) -> list[list[str]]:
-        return self.__grid
+        return self.grid[y][x] == CellType.FLOOR.value
 
     @property
     def turn(self) -> int:
@@ -270,7 +263,3 @@ class Game:
     @property
     def agents(self) -> list[Agent]:
         return self.__agents
-
-    @property
-    def bombs(self) -> list[Bomb]:
-        return self.__bombs

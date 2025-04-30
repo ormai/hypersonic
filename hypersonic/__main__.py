@@ -9,9 +9,9 @@ import sys
 import pygame
 import os
 
-from game.display import Display
-from game.model import Game
-from game.entities import ExecutableAgent, AspAgent
+from .display import Display
+from .model import Game
+from .entities import ExecutableAgent, AspAgent
 
 
 def main():
@@ -22,9 +22,8 @@ def main():
     last_time = time()
 
     game = Game([
-        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("game", "agents", "random_agent.py")],
-                        "Random"),
-        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("game", "encodings", "test")], "AspAgent")
+        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
+        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "test")], "AspAgent")
     ])
     display = Display(game)
     clock = pygame.time.Clock()
@@ -61,6 +60,7 @@ def main():
                         if agent.timed_out:
                             # TODO: handle defeat
                             game.running = False
+                    # TODO: handle case in which all boxes are destroyed but there are turns left
                     game.update(actions)
                     display.explosion_frame = 0
 

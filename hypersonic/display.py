@@ -3,8 +3,8 @@ from threading import Timer
 import pygame
 import os
 
-from game.model import Game
-from game.entities import CellType, Agent
+from .model import Game
+from .entities import CellType, Agent
 
 
 class Display:
@@ -19,7 +19,6 @@ class Display:
     EXPLOSION_COLOR = (255, 165, 0)  # Orange
     WHITE = (255, 255, 255)
     GRID_OFFSET = (702, 45)
-    RES = os.path.join("game", "resources")
     TEXT_BACKGROUND = (0, 0, 0, 230)
     PLAYER_COLORS = [
         (255, 143, 22),
@@ -51,7 +50,7 @@ class Display:
 
     def __load_assets(self):
         try:
-            jbm = os.path.join(Display.RES, "JetBrainsMono-Regular.ttf")
+            jbm = os.path.join("resources", "JetBrainsMono-Regular.ttf")
             self.font = pygame.font.Font(jbm, 20)
             self.medium_font = pygame.font.Font(jbm, 30)
             self.big_font = pygame.font.Font(jbm, 50)
@@ -60,21 +59,21 @@ class Display:
             self.medium_font = pygame.font.Font(None, 30)
             self.big_font = pygame.font.Font(None, 50)
 
-        self.background = pygame.image.load(os.path.join(Display.RES, "background.jpg")).convert()
+        self.background = pygame.image.load(os.path.join("resources", "background.jpg")).convert()
 
-        game_sheet = pygame.image.load(os.path.join(Display.RES, "game.png")).convert_alpha()
+        game_sheet = pygame.image.load(os.path.join("resources", "game.png")).convert_alpha()
         self.box_sprite = sprite(game_sheet, 264, 139, Display.CELL_SIZE, Display.CELL_SIZE)
 
-        self.lens_flares = [pygame.image.load(os.path.join(Display.RES, f"lens_flare_player_0{i}.png")).convert_alpha()
+        self.lens_flares = [pygame.image.load(os.path.join("resources", f"lens_flare_player_0{i}.png")).convert_alpha()
                             for i in range(1, 5)]
         self.bomb_sprites = [sprite(game_sheet, x, y, Display.BOMB_SIZE, Display.BOMB_SIZE)
                              for x, y in ((246, 230), (0, 165), (176, 230), (73, 165))]
         self.player_spots = [
-            pygame.image.load(os.path.join(Display.RES, f"spot_player_0{i}.png")).convert_alpha()
+            pygame.image.load(os.path.join("resources", f"spot_player_0{i}.png")).convert_alpha()
             for i in range(1, 5)
         ]
 
-        sheet = pygame.image.load(os.path.join(Display.RES, "players.png")).convert_alpha()
+        sheet = pygame.image.load(os.path.join("resources", "players.png")).convert_alpha()
         v_space, h_space, size = 28, 12, Display.PLAYER_SIZE
         self.player_sprites = [
             {
@@ -123,7 +122,7 @@ class Display:
             }
         ]
 
-        sheet = pygame.image.load(os.path.join(Display.RES, "explosion.png")).convert_alpha()
+        sheet = pygame.image.load(os.path.join("resources", "explosion.png")).convert_alpha()
         self.fire = [sprite(sheet, 256 * j, 256 * i, 256, 256) for i in range(8) for j in range(8)]
 
         self.explosion_speed = Display.FRAME_RATE / len(self.fire)
