@@ -21,8 +21,10 @@ class Game:
         (0, HEIGHT - 1),
     ]
     BOMB_LIFETIME = 8
-    DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-    DIRECTIONS_MAPPING = dict(zip(DIRECTIONS, ("down", "up", "right", "left")))
+
+    # Clockwise directions
+    DIRECTIONS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+    DIRECTIONS_MAPPING = dict(zip(DIRECTIONS, ("up", "right", "down", "left")))
 
     def __init__(self, agents: list[Agent]):
         """
@@ -183,24 +185,33 @@ class Game:
             agent.state = Agent.State.IDLE
             return  # otherwise it loops between two neighboring cells
 
-        # Using the MOVE command followed by grid coordinates will make the
-        # player attempt to move one cell closer to those coordinates. The
-        # player will automatically compute the shortest path within the grid
-        # to get to the target point. If the given coordinates are impossible
-        # to get to, the player will instead target the valid cell closest to
-        # the given coordinates.
+        # > Using the MOVE command followed by grid coordinates will make the
+        # > player attempt to move one cell closer to those coordinates. The
+        # > player will automatically compute the shortest path within the grid
+        # > to get to the target point. If the given coordinates are impossible
+        # > to get to, the player will instead target the valid cell closest to
+        # > the given coordinates.
 
-        # find the closest valid cell
-        while not self.walkable(x, y):
+        if not self.walkable(x, y):
             log.debug(f"destination not walkable ({x}, {y})")
-            if alternative := min(
-                    [(x + dx, y + dy) for dx, dy in Game.DIRECTIONS if self.walkable(x + dx, y + dy)],
-                    key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]),
-                    default=None):
-                x, y = alternative
-                log.debug(f"found alternative destination ({x}, {y})")
-            else:
-                break
+            # We only look for the four adjacent cells to the destination --and
+            # thus equally close to the destination (x, y), thus satisfying the
+            # spec-- and pick the one that is walkable and closest to the
+            # player. Knowing the map layouts and the behavior of all entities
+            # we know that this will be enough. An example of a critical
+            # situation might be that of a destination cell containing a box.
+            # Now, if the candidate alternative cell contains a bomb --not
+            # placed in the current turn-- we just fall back again on one of
+            # the other three cells, one of which must be valid because:
+            # (1) boxes are never placed in corners;
+            # (2) there can be a maximum of two bombs placed simultaneously.
+
+            # NOTE: when multiple alternatives are equally distant from
+            #       the agent the directions are attempted in the order of the
+            #       Game.DIRECTIONS list elements.
+            x, y = min([(x + dx, y + dy) for dx, dy in Game.DIRECTIONS if self.walkable(x + dx, y + dy)],
+                       key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]), default=None)
+            log.debug(f"alternative destination is ({x}, {y})")
 
         if next_cell := self.__path((agent.y, agent.x), (y, x)):
             ny, nx = next_cell
