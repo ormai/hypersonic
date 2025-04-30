@@ -1,4 +1,5 @@
 import os
+import sys
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
 from time import time
@@ -292,7 +293,13 @@ class AspAgent(Agent):
     def __init__(self, agent_id: int, start_cell: tuple[int, int], asp_programs: list[str], name: str = ""):
         super().__init__(agent_id, start_cell, name)
 
-        self.handler = DesktopHandler(DLV2DesktopService(os.path.join("game", "lib", "dlv2")))
+        dlv_lib = 'dlv2'
+        if sys.platform == 'win32':
+            dlv_lib += '.exe'
+        elif sys.platform == 'darwin':
+            dlv_lib = '.max_5'
+
+        self.handler = DesktopHandler(DLV2DesktopService(os.path.join("game", "lib", dlv_lib)))
         self.handler.add_option(OptionDescriptor("--silent"))
         self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2"))
         self.handler.add_option(OptionDescriptor("--printonlyoptimum"))

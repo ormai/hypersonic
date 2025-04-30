@@ -88,7 +88,7 @@ class Game:
                                 other_bomb.timer = 0  # detonate immediately
                                 other_bomb.exploded = True  # Mark for removal later
                                 # bomb exploded so return it to the agent
-                                self.__agents[bomb.owner_id].bombs_left += 1
+                                self.__agents[other_bomb.owner_id].bombs_left += 1
                                 if other_bomb not in queue:
                                     queue.append(other_bomb)
                                 processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
