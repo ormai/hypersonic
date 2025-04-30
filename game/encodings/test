@@ -1,4 +1,4 @@
-testRand(X, Y) :- &rand(0, W; X), &rand(0, H; Y), gridSize(W, H).
+testRand(X, Y) :- &rand(0, W - 1; X), &rand(0, H - 1; Y), gridSize(W, H).
 
 placeBomb(X, Y) :- testRand(X, Y), player(ID, _, _, 1), myId(ID).
 move(X, Y) :- testRand(X, Y), player(ID, _, _, 0), myId(ID).
