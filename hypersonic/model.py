@@ -224,7 +224,6 @@ class Game:
     def update(self, actions: dict[int, str]):
         """
         Processes one game turn.
-        Order: Tick bombs, Explode, Spawn Items, Resolve Player Actions, Update Visuals
         """
 
         log.info(f"# Turn {self.__turn + 1}")
@@ -232,14 +231,13 @@ class Game:
 
         self.process_agent_actions(actions)
         self.__turn += 1
-        log.info("")
 
     @staticmethod
     def in_bounds(x: int, y: int) -> bool:
         return 0 <= x < Game.WIDTH and 0 <= y < Game.HEIGHT
 
     def walkable(self, x: int, y: int) -> bool:
-        """Check if an agent can move at the cell (x, y)"""
+        """Check if an agent can move to the cell (x, y)"""
 
         if not Game.in_bounds(x, y):
             return False
