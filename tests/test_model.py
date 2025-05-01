@@ -34,7 +34,8 @@ def test_tick_bombs(game: Game):
 
 
 def test_propagate_explosion(game: Game):
-    bomb = Bomb(0, 3, 7, 0, 3)
+    bomb = Bomb(0, 3, 7)
+    bomb.timer = 0
     assert len(game.explosions) == 0, "Initially, there are no explosion"
     game.propagate_explosions([bomb])
     assert (bomb.x, bomb.y) in game.explosions, "Bomb location becomes an explosion"
@@ -44,7 +45,8 @@ def test_propagate_explosion(game: Game):
 
 
 def test_propagate_explosion_chain_reaction(game: Game):
-    first, second = Bomb(0, 4, 5, 0, 3), Bomb(1, 4, 7, 8, 3)
+    first, second = Bomb(0, 4, 5), Bomb(1, 4, 7)
+    first.timer = 0
     game.bombs = [second]
     game.propagate_explosions([first])
     assert game.bombs == [] and (second.x, second.y) in game.explosions, "Second bomb gets detonated by the first"
@@ -55,13 +57,17 @@ def test_propagate_explosion_destroys_boxes(game: Game):
     boxes = ((bx, by + 2), (bx, by - 2), (bx + 2, by), (bx - 2, by))
     for x, y in boxes:
         game.grid[y][x] = CellType.BOX.value
-    game.propagate_explosions([Bomb(0, bx, by, 0, 3)])
+    bomb = Bomb(0, bx, by)
+    bomb.timer = 0
+    game.propagate_explosions([bomb])
     assert all(game.grid[y][x] == CellType.FLOOR.value for x, y, in boxes), "All boxes get destroyed"
 
     boxes = ((bx, by + 1), (bx, by + 2))
     for x, y in boxes:
         game.grid[y][x] = CellType.BOX.value
-    game.propagate_explosions([Bomb(0, bx, by, 0, 3)])
+    bomb = Bomb(0, bx, by)
+    bomb.timer = 0
+    game.propagate_explosions([bomb])
     assert game.grid[by + 1][bx] == CellType.FLOOR.value, "Box closest to the explosion gets destroyed"
     assert game.grid[by + 2][bx] == CellType.BOX.value, "Explosion propagation stops after a box gets hit"
 
@@ -96,7 +102,7 @@ def test_walkable(game: Game):
             and not game.walkable(Game.WIDTH * -2, 0)
             and not game.walkable(0, Game.HEIGHT * -2)), "Bounds are checked"
 
-    game.bombs = [Bomb(0, 5, 6, 8, 3)]
+    game.bombs = [Bomb(0, 5, 6)]
     assert game.walkable(5, 6), "Cells containing bombs placed in the current turn are walkable"
     game.tick_bombs()
     assert not game.walkable(5, 6), "Cells containing bombs placed in previous turns aren not walkable"

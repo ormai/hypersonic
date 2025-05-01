@@ -1,10 +1,9 @@
 from random import randint
-from time import sleep
 
 width, height, my_id = map(int, input().split())
 
 turn = 0
-turns_left = 0 # wait to reach the position
+turns_left = 0  # wait to reach the position
 current_action = ""
 while True:
     for _ in range(height):

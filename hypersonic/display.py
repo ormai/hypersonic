@@ -5,6 +5,9 @@ import os
 
 from .model import Game
 from .entities import CellType, Agent
+from .log import get_logger
+
+log = get_logger(__name__)
 
 
 class Display:
@@ -27,10 +30,18 @@ class Display:
 
         pygame.init()
         pygame.display.set_caption("Hypersonic")
-        self.screen = pygame.display.set_mode((1920, 1080))  # before calling convert()
+
+        width, height = 1920, 1080
+        win_width = pygame.display.get_desktop_sizes()[0][0] * 0.75
+        self.scale = win_width / width
+        win_height = win_width // (16 / 9)
+        log.debug(f"Window size ({width}, {height}), scale: {self.scale:.2f}")
+        self.window = pygame.display.set_mode((win_width, win_height))
+        self.screen = pygame.Surface((width, height))
+
         self.__load_assets()
         self.start_button = Button("Start", 190, 900, 100, 40, self.medium_font)
-        self.pause_button = Button("Stop", 335, 900, 100, 40, self.medium_font)
+        self.stop_button = Button("Stop", 335, 900, 100, 40, self.medium_font)
         self.player_animations = [PlayerAnimation(self, i) for i in range(len(game.agents))]
 
         # ready in one second
@@ -127,14 +138,16 @@ class Display:
         """Handles any interesting event"""
         match event.type:
             case pygame.MOUSEMOTION:
+                pos = event.pos[0] // self.scale, event.pos[1] // self.scale
                 if self.game.running:
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self.start_button.is_hover(
-                        event.pos) or self.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
+                        pos) or self.stop_button.is_hover(pos) else pygame.SYSTEM_CURSOR_ARROW)
             case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
+                pos = event.pos[0] // self.scale, event.pos[1] // self.scale
                 if self.ready and self.game.running:
                     game.paused = (self.ready and game.paused and not
-                    self.start_button.is_clicked(event.pos, event.button == 1) or not game.paused
-                                   and self.pause_button.is_clicked(event.pos, event.button == 1))
+                    self.start_button.is_clicked(pos, event.button == 1) or not game.paused
+                                   and self.stop_button.is_clicked(pos, event.button == 1))
 
     def draw(self, delta_time: float, turn_progress: float):
         """Draw grid and all entities, gets called at every frame"""
@@ -149,7 +162,7 @@ class Display:
         if self.game.running:
             if self.ready:
                 self.start_button.draw(self.screen)
-            self.pause_button.draw(self.screen)
+            self.stop_button.draw(self.screen)
 
         if not self.game.running:
             if self.end_game_info is None:
@@ -160,6 +173,7 @@ class Display:
                 self.game.paused = True
             self.show_final_message(self.end_game_info)
 
+        self.window.blit(pygame.transform.smoothscale(self.screen, self.window.get_size()), (0, 0))
         pygame.display.flip()
 
     def draw_turn_info(self, delta_time: float):

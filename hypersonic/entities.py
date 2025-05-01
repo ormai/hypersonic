@@ -34,13 +34,12 @@ class Bomb:
     LIFETIME = 8
     RANGE = 3
 
-    def __init__(self, owner_id, x: int, y: int, timer: int = LIFETIME, bomb_range: int = RANGE):
+    def __init__(self, owner_id, x: int, y: int):
         self.type = EntityType.BOMB.value
         self.owner_id = owner_id
-        self.x = x
-        self.y = y
-        self.timer = timer
-        self.range = bomb_range
+        self.x, self.y = x, y
+        self.timer = Bomb.LIFETIME
+        self.range = Bomb.RANGE
 
     def __repr__(self):
         return f"Bomb(owner={self.owner_id}, pos=({self.x},{self.y}), timer={self.timer})"
@@ -71,7 +70,7 @@ class Agent(ABC):
 
         self.bomb_range = 3  # useless in this league
         self.message = ""
-        self.name = f"Agent {agent_id}" if not name else name
+        self.name = name if name else f"Agent {agent_id}"
 
         # Victory Conditions
         # - You are the one who blew up the most boxes.
@@ -408,7 +407,6 @@ class AspAgent(Agent):
                 return f"BOMB {atom.x} {atom.y}"
         log.debug(f"{self.name} provided an empty answer set")
         return ""
-
 
     def __timeout(self):
         with self.lock:
