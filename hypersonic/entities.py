@@ -1,5 +1,6 @@
 import os
 import sys
+from queue import Queue, Empty
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
 from abc import ABC, abstractmethod
@@ -120,6 +121,12 @@ class Agent(ABC):
         MOVE = "move"
 
 
+def _reader_thread(pipe, queue):
+    for line in iter(pipe.readline, ''):
+        queue.put(line)
+    pipe.close()
+
+
 class ExecutableAgent(Agent):
     """
     An executable agent is a subprocess executing on its own. It gets the game state from
@@ -145,6 +152,17 @@ class ExecutableAgent(Agent):
             bufsize=0,
             universal_newlines=True,
         )
+
+        if sys.platform == 'win32':
+            self.output_queue = Queue()
+            self.error_queue = Queue()
+            self.stdout_thread = Thread(target=_reader_thread, args=(self.process.stdout, self.output_queue),
+                                        daemon=True)
+            self.stderr_thread = Thread(target=_reader_thread, args=(self.process.stderr, self.error_queue),
+                                        daemon=True)
+            self.stdout_thread.start()
+            self.stderr_thread.start()
+
         log.debug(f"Started {self.name} (PID: {self.process.pid}): {' '.join(cmd)}")
 
     def __terminated(self) -> bool:
@@ -195,23 +213,35 @@ class ExecutableAgent(Agent):
                       f"--- end of {self.name} stderr")
 
         timeout = Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S
-        ready_to_read, _, _ = select([self.process.stdout.fileno()], [], [], timeout)
-        if ready_to_read:
-            if output := self.process.stdout.readline():
-                return str(output).strip()
+        if sys.platform == 'win32':
+            return self.output_queue.get(timeout=timeout).strip()
+        else:
+            ready_to_read, _, _ = select([self.process.stdout.fileno()], [], [], timeout)
+            if ready_to_read:
+                if output := self.process.stdout.readline():
+                    return str(output).strip()
         log.warning(f"{self.name} is disqualified for not providing output in time")
         return ""
 
     def __read_stderr_non_blocking(self) -> str | None:
         if not self.__terminated() and self.process.stderr is not None:
-            try:
-                output = ""
-                while select([self.process.stderr], [], [], 0)[0]:
-                    if line := self.process.stderr.readline():
-                        output += line
-                return output
-            except (IOError, OSError) as e:
-                log.warning(f"Error reading stderr from agent {self.id}: {e}")
+            if sys.platform == 'win32':
+                stderr_lines = []
+                while True:
+                    try:
+                        stderr_lines.append(self.error_queue.get_nowait())
+                    except Empty:
+                        break
+                return "".join(stderr_lines)
+            else:
+                try:
+                    output = ""
+                    while select([self.process.stderr], [], [], 0)[0]:
+                        if line := self.process.stderr.readline():
+                            output += line
+                    return output
+                except (IOError, OSError) as e:
+                    log.warning(f"Error reading stderr from agent {self.id}: {e}")
         return None
 
     @override
@@ -408,7 +438,6 @@ class AspAgent(Agent):
                 return f"BOMB {atom.x} {atom.y}"
         log.debug(f"{self.name} provided an empty answer set")
         return ""
-
 
     def __timeout(self):
         with self.lock:
