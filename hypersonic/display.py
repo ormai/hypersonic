@@ -16,19 +16,13 @@ class Display:
     SPOT_SIZE = 100
     PLAYER_SIZE = 128
     MAGENTA = (255, 0, 255)
-    EXPLOSION_COLOR = (255, 165, 0)  # Orange
     WHITE = (255, 255, 255)
     GRID_OFFSET = (702, 45)
     TEXT_BACKGROUND = (0, 0, 0, 230)
-    PLAYER_COLORS = [
-        (255, 143, 22),
-        (255, 29, 92),
-        (34, 161, 228),
-        (222, 109, 223)
-    ]
+    PLAYER_COLORS = ((255, 143, 22), (255, 29, 92))
 
     def __init__(self, game: Game):
-        self.winner_info: str | None = None
+        self.end_game_info: str | None = None
         self.game = game
 
         pygame.init()
@@ -46,7 +40,11 @@ class Display:
         self.ready = False
         Timer(1, set_ready).start()
 
-        self.draw(1, 0, True)
+        self.draw(1, 0)  # initial draw
+
+        self.explosion_speed = Display.FRAME_RATE / len(self.fire)
+        self.explosion_frame = 0
+        self.explosion_frame_count = 0.0
 
     def __load_assets(self):
         try:
@@ -125,43 +123,46 @@ class Display:
         sheet = pygame.image.load(os.path.join("resources", "explosion.png")).convert_alpha()
         self.fire = [sprite(sheet, 256 * j, 256 * i, 256, 256) for i in range(8) for j in range(8)]
 
-        self.explosion_speed = Display.FRAME_RATE / len(self.fire)
-        self.explosion_frame = 0
-        self.explosion_frame_count = 0.0
-
-    def handle(self, event: pygame.event.Event):
+    def handle(self, event: pygame.event.Event, game: Game):
         """Handles any interesting event"""
         match event.type:
             case pygame.MOUSEMOTION:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self.start_button.is_hover(
-                    event.pos) or self.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
+                if self.game.running:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if self.start_button.is_hover(
+                        event.pos) or self.pause_button.is_hover(event.pos) else pygame.SYSTEM_CURSOR_ARROW)
+            case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
+                if self.ready and self.game.running:
+                    game.paused = (self.ready and game.paused and not
+                    self.start_button.is_clicked(event.pos, event.button == 1) or not game.paused
+                                   and self.pause_button.is_clicked(event.pos, event.button == 1))
 
-    def draw(self, delta_time: float, turn_progress: float, paused: bool):
+    def draw(self, delta_time: float, turn_progress: float):
         """Draw grid and all entities, gets called at every frame"""
         self.screen.blit(self.background, (0, 0))
 
-        self.__draw_grid()
-        if not paused:
-            self.__draw_explosions()
-        self.__draw_bombs(turn_progress, paused)
+        self.draw_grid()
+        self.draw_explosions()
+        self.draw_bombs(turn_progress)
         for player_animation in self.player_animations:
-            player_animation.draw(turn_progress, paused)
-        self.__draw_turn_info(delta_time)
-        if self.ready:
-            self.start_button.draw(self.screen)
-        self.pause_button.draw(self.screen)
+            player_animation.draw(turn_progress, self.game.paused)
+        self.draw_turn_info(delta_time)
+        if self.game.running:
+            if self.ready:
+                self.start_button.draw(self.screen)
+            self.pause_button.draw(self.screen)
 
-        if self.game.turn >= Game.MAX_TURNS:
-            if self.winner_info is None:
-                self.winner_info = (
-                    f"Winner: {max((agent for agent in self.game.agents), key=lambda a: a.boxes_destroyed).name}"
-                    if len(set([agent.boxes_destroyed for agent in self.game.agents])) != 1
-                    else "Draw")
-            self.show_final_message(self.winner_info)
+        if not self.game.running:
+            if self.end_game_info is None:
+                # do it one time when the game finished
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+                self.end_game_info = ("Draw" if len(winners := self.game.get_winners()) > 1 else
+                                      f"{winners[0].name} wins" if len(winners) == 1 else "No winner")
+                self.game.paused = True
+            self.show_final_message(self.end_game_info)
 
         pygame.display.flip()
 
-    def __draw_turn_info(self, delta_time: float):
+    def draw_turn_info(self, delta_time: float):
         left, top, width = 165, 100, 300
 
         turns_left_box = pygame.Surface((width, 40), pygame.SRCALPHA)
@@ -187,7 +188,7 @@ class Display:
             player_surface.blit(name_surface, name_surface.get_rect(topleft=(10, top_box_offset)))
             top_box_offset += name_surface.get_height() + line_spacing + 20
 
-            score_surface = self.font.render(f"Boxes destroyed {agent.boxes_destroyed:>7}", True,
+            score_surface = self.font.render(f"Boxes destroyed {agent.boxes_blown_up:>7}", True,
                                              Display.PLAYER_COLORS[i])
             player_surface.blit(score_surface, score_surface.get_rect(topleft=(10, top_box_offset)))
             top_box_offset += score_surface.get_height() + line_spacing
@@ -206,14 +207,14 @@ class Display:
                                                   Display.TEXT_BACKGROUND), (left, top))
             top += 40
             self.screen.blit(
-                self.font.render(f"Boxes left: {sum(row.count(CellType.BOX.value) for row in self.game.grid)}", True,
+                self.font.render(f"Boxes left: {self.game.boxes_left}", True,
                                  Display.MAGENTA, Display.TEXT_BACKGROUND), (left, top))
             top += 40
             self.screen.blit(
                 self.font.render(f"Frame rate: {1 / delta_time:.0f}", True, Display.MAGENTA, Display.TEXT_BACKGROUND),
                 (left, top))
 
-    def __draw_grid(self):
+    def draw_grid(self):
         for r in range(Game.HEIGHT):
             for c in range(Game.WIDTH):
                 if self.game.grid[r][c] == CellType.BOX.value:
@@ -222,9 +223,9 @@ class Display:
                     if __debug__:
                         pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
-    def __draw_bombs(self, turn_progress: float, paused: bool):
+    def draw_bombs(self, turn_progress: float):
         for bomb in self.game.bombs:
-            if paused or bomb.timer > 1:
+            if self.game.paused or bomb.timer > 1:
                 if turn_progress < 0.5:
                     factor = turn_progress * 2  # 0 -> 0.5 maps to 0 -> 1.0
                 else:
@@ -247,11 +248,12 @@ class Display:
             if __debug__:
                 pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
-    def __draw_explosions(self):
-        self.explosion_frame_count += 1
-        if self.explosion_frame_count >= self.explosion_speed:
-            self.explosion_frame_count = 0.0
-            self.explosion_frame = (self.explosion_frame + 1) % len(self.fire)
+    def draw_explosions(self):
+        if not self.game.paused:
+            self.explosion_frame_count += 1
+            if self.explosion_frame_count >= self.explosion_speed:
+                self.explosion_frame_count = 0.0
+                self.explosion_frame = (self.explosion_frame + 1) % len(self.fire)
         for x, y in self.game.explosions:
             x, y = Display.cell_to_px(x, y)
             img = self.fire[self.explosion_frame]
@@ -262,9 +264,9 @@ class Display:
 
     def show_final_message(self, message: str):
         win_surface = self.big_font.render(message, True, (255, 215, 0))
-        win_rect = win_surface.get_rect(center=(self.screen.get_width() // 2, self.screen.get_height() // 2))
+        win_rect = win_surface.get_rect(center=(315, 900))
         bg_rect = win_rect.inflate(20, 20)
-        pygame.draw.rect(self.screen, (0, 0, 0, 180), bg_rect)  # Semi-transparent black bg
+        pygame.draw.rect(self.screen, Display.TEXT_BACKGROUND, bg_rect)
         self.screen.blit(win_surface, win_rect)
 
     @staticmethod
@@ -311,7 +313,7 @@ class PlayerAnimation:
     def draw(self, turn_progress: float, paused: bool):
         x, y = Display.cell_to_px(self.agent.x, self.agent.y)
 
-        if not paused and self.agent.state == Agent.State.MOVE:
+        if self.agent.state == Agent.State.MOVE:
             src_x, src_y = Display.cell_to_px(self.agent.previous_x, self.agent.previous_y)
             x, y = lerp(src_x, x, turn_progress), lerp(src_y, y, turn_progress)
 

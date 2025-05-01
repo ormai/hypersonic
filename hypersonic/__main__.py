@@ -28,49 +28,28 @@ def main():
     display = Display(game)
     clock = pygame.time.Clock()
 
-    paused = True
     while True:
         current_time = time()
         delta_time = current_time - last_time
         last_time = current_time
 
         for event in pygame.event.get():
-            match event.type:
-                case pygame.QUIT:
-                    pygame.quit()
-                    print("Exiting. Bye!")
-                    return
-                case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
-                    if display.ready:
-                        paused = (display.ready and paused and not
-                        display.start_button.is_clicked(event.pos, event.button == 1) or not paused
-                                  and display.pause_button.is_clicked(event.pos, event.button == 1))
-                case _:
-                    display.handle(event)
+            if event.type == pygame.QUIT:
+                for agent in game.agents:
+                    agent.terminate() # otherwise leaves zombie processes
+                pygame.quit()
+                print("Exiting. Bye!")
+                return
+            display.handle(event, game)
 
-        if game.running:
+        if game.running and not game.paused:
             model_accumulator += delta_time
             while model_accumulator >= model_update_interval:
-                if not paused:
-                    for agent in game.agents:
-                        agent.send_turn_state(game.agents, game.bombs, game.grid)
-
-                    actions = {agent.id: agent.receive(game.turn) for agent in game.agents}
-                    for agent in game.agents:
-                        if agent.timed_out:
-                            # TODO: handle defeat
-                            game.running = False
-                    # TODO: handle case in which all boxes are destroyed but there are turns left
-                    game.update(actions)
-                    display.explosion_frame = 0
-
-                if game.turn >= Game.MAX_TURNS:
-                    for agent in game.agents:
-                        agent.terminate()
-                    game.running = False
+                game.update()
+                display.explosion_frame = 0
                 model_accumulator -= model_update_interval
 
-        display.draw(delta_time, model_accumulator * model_update_rate, paused)
+        display.draw(delta_time, model_accumulator * model_update_rate)
         clock.tick(Display.FRAME_RATE)
 
 

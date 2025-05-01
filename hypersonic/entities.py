@@ -2,7 +2,6 @@ import os
 import sys
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
-from time import time
 from abc import ABC, abstractmethod
 from typing import override
 from threading import Timer, Thread, Lock, Condition
@@ -32,7 +31,10 @@ class EntityType(Enum):
 
 
 class Bomb:
-    def __init__(self, owner_id, x: int, y: int, timer: int, bomb_range: int):
+    LIFETIME = 8
+    RANGE = 3
+
+    def __init__(self, owner_id, x: int, y: int, timer: int = LIFETIME, bomb_range: int = RANGE):
         self.type = EntityType.BOMB.value
         self.owner_id = owner_id
         self.x = x
@@ -41,7 +43,7 @@ class Bomb:
         self.range = bomb_range
 
     def __repr__(self):
-        return f"Bomb(owner={self.owner_id}, pos=({self.x},{self.y}), timer={self.timer}, range={self.range})"
+        return f"Bomb(owner={self.owner_id}, pos=({self.x},{self.y}), timer={self.timer})"
 
     def tick(self) -> bool:
         """
@@ -66,38 +68,52 @@ class Agent(ABC):
         self.id = agent_id
         self.x, self.y = start_cell
         self.bombs_left = 1
-        self.timed_out = False
-        self.boxes_destroyed = 0
-        self.bomb_range = 3  # Default range including center
+
+        self.bomb_range = 3  # useless in this league
         self.message = ""
         self.name = f"Agent {agent_id}" if not name else name
+
+        # Victory Conditions
+        # - You are the one who blew up the most boxes.
+        self.boxes_blown_up = 0
+
+        # Lose Conditions
+        # - Your program does not respond in time.
+        # - You provide invalid input.
+        self.disqualified = False
 
         # These are used by the Display to animate the player
         self.state = Agent.State.IDLE
         self.direction = "down" if self.x == 0 else "up"
         self.previous_x, self.previous_y = start_cell
 
+    def __repr__(self):
+        return (f"Agent(id={self.id}, name={self.name}, pos=({self.x},{self.y})"
+                + f", disqualified={self.disqualified}, "
+                + f"bombs_left={self.bombs_left}, "
+                + f"boxes_blown_up={self.boxes_blown_up})")
+
     @abstractmethod
     def send_turn_state(self, agents: list["Agent"], bombs: list[Bomb], grid: list[list[str]]):
-        pass
+        ...
 
     @abstractmethod
     def receive(self, turn: int) -> str:
-        pass
+        ...
 
     @abstractmethod
     def send_prelude(self, width: int, height: int):
-        pass
+        ...
 
     @abstractmethod
     def _serialize_turn_state(self,
                               agents: list["Agent"],
                               bombs: list[Bomb],
                               grid: list[list[str]]) -> str | list[Predicate]:
-        pass
+        ...
 
     def terminate(self):
-        pass
+        ...
 
     class State(Enum):
         IDLE = "idle"
@@ -179,12 +195,11 @@ class ExecutableAgent(Agent):
                       f"--- end of {self.name} stderr")
 
         timeout = Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S
-        start_time = time()
-        while time() - start_time < timeout:
-            if line := self.process.stdout.readline():
-                return str(line).strip()
-            raise ConnectionError(f"Received EOF from {self.name}. Probably crashed.")
-        self.timed_out = True
+        ready_to_read, _, _ = select([self.process.stdout.fileno()], [], [], timeout)
+        if ready_to_read:
+            if output := self.process.stdout.readline():
+                return str(output).strip()
+        log.warning(f"{self.name} is disqualified for not providing output in time")
         return ""
 
     def __read_stderr_non_blocking(self) -> str | None:
@@ -279,9 +294,9 @@ class AspAgent(Agent):
         % facts modeling the game state at the beginning of the turn
         box(X, Y). % a box placed on the grid
         player(ID, X, Y, BombsLeft). % a player on the grid, BombsLeft is either 0 or 1
-        bomb(OwnerID, X, Y, TurnsLeft).% a bomb on the grid, TurnsLeft is the detonation timer
+        bomb(OwnerID, X, Y, TurnsLeft). % a bomb on the grid, TurnsLeft is the detonation timer
 
-    The output of the program consists of two actions:
+    The output of the program may consist of one of two actions each turn:
 
         placeBomb(X, Y). % places a bomb at the current position and
                          % starts moving toward (X, Y) in the same turn
@@ -368,16 +383,20 @@ class AspAgent(Agent):
         timer = Timer(Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S, self.__timeout)
         timer.start()
         with self.lock:
-            while self.is_running and not self.timed_out:
+            while self.is_running and not self.disqualified:
                 self.run_condition.wait()
         timer.cancel()
+
+        if self.disqualified:
+            log.warning(f"{self.name} is disqualified because it did not respond in time")
+            return ""
 
         if err := self.answer_sets.get_errors():
             log.debug(self.handler.get_input_program(0).get_programs()
                       + self.handler.get_input_program(1).get_programs()
                       + self.handler.get_input_program(2).get_programs())
             log.error(err)
-            raise ValueError("Invalid ASP program")
+            return ""
 
         # Cfr. handler options. Gives only the optimum and can either contain
         # placeBomb/2 or move/2. If contains neither it's invalid.
@@ -387,9 +406,11 @@ class AspAgent(Agent):
                 return f"MOVE {atom.x} {atom.y}"
             else:
                 return f"BOMB {atom.x} {atom.y}"
-        raise ValueError(f"Invalid ASP output") # TODO: this is a lose condition
+        log.debug(f"{self.name} provided an empty answer set")
+        return ""
+
 
     def __timeout(self):
         with self.lock:
-            self.timed_out = True
+            self.disqualified = True
             self.run_condition.notify()

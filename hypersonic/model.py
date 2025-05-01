@@ -20,7 +20,6 @@ class Game:
         (WIDTH - 1, 0),
         (0, HEIGHT - 1),
     ]
-    BOMB_LIFETIME = 8
 
     # Clockwise directions
     DIRECTIONS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
@@ -29,23 +28,28 @@ class Game:
     def __init__(self, agents: list[Agent]):
         """
         Parameters:
-            agents (list[str]): a list of commands to execute the agent subprocesses
+            agents (list[str]): a list of Agents that play the game
         """
 
         assert len(agents) == 2, "For now, the game is played with 2 players only."
 
-        self.running = True
-        self.__turn = 0
+        self.running = True  # whether the simulation ended
+        self.paused = True  # whether the simulation was temporarily paused
+        self.turn = 0
         self.bombs: list[Bomb] = []
-        self.__agents = agents
+        self.agents = agents
         self.explosions: set[tuple[int, int]] = set()
         self.grid = [list(row) for row in choice(LAYOUTS)]
+        self.boxes_left = self.count_boxes_left()
 
-        for agent in self.__agents:
+        for agent in self.agents:
             agent.send_prelude(Game.WIDTH, Game.HEIGHT)
 
         assert all(len(row) == Game.WIDTH for row in self.grid) and len(
             self.grid) == Game.HEIGHT, f"Grid must be {Game.WIDTH}x{Game.HEIGHT}"
+
+    def count_boxes_left(self) -> int:
+        return sum(row.count(CellType.BOX.value) for row in self.grid)
 
     def tick_bombs(self) -> list[Bomb]:
         """Ticks all active bombs and returns the ones that explode in this turn"""
@@ -54,7 +58,7 @@ class Game:
         for bomb in self.bombs:
             if bomb.tick():
                 exploding.append(bomb)
-                self.__agents[bomb.owner_id].bombs_left += 1  # give back to agent
+                self.agents[bomb.owner_id].bombs_left += 1  # give back to agent
             else:
                 remaining.append(bomb)
         self.bombs = remaining
@@ -80,16 +84,17 @@ class Game:
                     # destroy boxes hit by explosion
                     if self.grid[ny][nx] == CellType.BOX.value:
                         self.grid[ny][nx] = CellType.FLOOR.value
-                        self.__agents[bomb.owner_id].boxes_destroyed += 1
+                        self.agents[bomb.owner_id].boxes_blown_up += 1
                         break  # explosion stops after hitting a box
 
                     # explosion triggers bombs nearby
                     for other_bomb in self.bombs:
                         if other_bomb.timer > 0 and other_bomb.x == nx and other_bomb.y == ny:
                             if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
+                                log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
                                 other_bomb.timer = 0  # detonate immediately
                                 # bomb exploded so return it to the agent
-                                self.__agents[other_bomb.owner_id].bombs_left += 1
+                                self.agents[other_bomb.owner_id].bombs_left += 1
                                 if other_bomb not in queue:
                                     queue.append(other_bomb)
                                 processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
@@ -104,10 +109,10 @@ class Game:
         pack = action.split(maxsplit=3)
         if len(pack) > 3:
             cmd, x, y, msg = pack
-            self.__agents[agent_id].message = msg
+            self.agents[agent_id].message = msg
         elif len(pack) == 3:
             cmd, x, y = pack
-            self.__agents[agent_id].message = ""
+            self.agents[agent_id].message = ""
         else:
             raise ValueError(f"Invalid command, expected was 'BOMB x y' or 'MOVE x y', found '{action}'")
         return cmd.upper(), int(x), int(y)
@@ -149,33 +154,31 @@ class Game:
             list[bombs]: new bombs placed
         """
         for agent_id, action in actions.items():
-            agent = self.__agents[agent_id]
-            cmd, x, y = self.parse_action(agent_id, action)
-            if cmd == "BOMB":
-                # bomb placement and movement happen in the same turn
-                if agent.bombs_left > 0:
-                    if not any(b.x == agent.x and b.y == agent.y
-                               for b in self.bombs):
-                        self.bombs.append(
-                            Bomb(
-                                agent.id,
-                                agent.x,
-                                agent.y,
-                                Game.BOMB_LIFETIME,
-                                agent.bomb_range,
-                            )
-                        )
-                        agent.bombs_left -= 1
-                        log.info(f"{agent.name} places a bomb at {agent.x} {agent.y}")
+            agent = self.agents[agent_id]
+            try:
+                cmd, x, y = self.parse_action(agent_id, action)
+                if not Game.in_bounds(x, y):
+                    raise ValueError(f"{agent.name}, out of bounds coordinates ({x}, {y})")
+                if cmd == "BOMB":
+                    # bomb placement and movement happen in the same turn
+                    if agent.bombs_left > 0:
+                        if not any(b.x == agent.x and b.y == agent.y for b in self.bombs):
+                            self.bombs.append(Bomb(agent.id, agent.x, agent.y))
+                            agent.bombs_left -= 1
+                            log.info(f"{agent.name} places a bomb at ({agent.x}, {agent.y})")
+                        else:
+                            log.warning(f"{agent.name} tried to place a bomb " +
+                                        f"at ({x}, {y}), but there is one there already")
                     else:
-                        log.warning(f"{agent.name} tried to place a bomb " +
-                                    f"at {x} {y}, but there is one there already")
-                else:
-                    log.info(f"{agent.name} wants to place a bomb but cannot")
-            elif cmd != "MOVE":
-                log.error(f"({agent.name}) invalid input. Expected 'MOVE" +
-                          f" x y | BOMB x y, but found '{cmd} {x} {y}'")
-            self.move(agent, x, y)
+                        log.info(f"{agent.name} wants to place a bomb but cannot")
+                elif cmd != "MOVE":
+                    raise ValueError("Invalid command")
+                self.move(agent, x, y)
+            except ValueError as e:
+                if action:
+                    log.error(e)
+                    log.warning(f"{agent.name} is disqualified for providing invalid input")
+                agent.disqualified = True
 
     def move(self, agent: Agent, x: int, y: int):
         if agent.x == x and agent.y == y:
@@ -221,16 +224,35 @@ class Game:
             agent.state = Agent.State.IDLE
             log.warning(f"{agent.name} cannot reach ({x}, {y})")
 
-    def update(self, actions: dict[int, str]):
+    def update(self):
         """
         Processes one game turn.
         """
+        log.info(f"# Turn {self.turn + 1}")
+        for agent in self.agents:
+            agent.send_turn_state(self.agents, self.bombs, self.grid)
 
-        log.info(f"# Turn {self.__turn + 1}")
-        self.propagate_explosions(self.tick_bombs())
+        self.propagate_explosions(self.tick_bombs())  # update previous state
+        self.process_agent_actions({agent.id: agent.receive(self.turn) for agent in self.agents})  # add new state
+        self.boxes_left = self.count_boxes_left()
+        self.turn += 1
 
-        self.process_agent_actions(actions)
-        self.__turn += 1
+        # end game condition
+        if self.turn >= Game.MAX_TURNS or self.boxes_left == 0 or any(a.disqualified for a in self.agents):
+            self.running = False
+
+    def get_winners(self) -> list[Agent]:
+        """
+        Returns:
+            list[Agent]: all players that are qualified to be the winner
+
+        It may return one agent, the only winner. If it returns two agents the
+        game ended in a draw. Finally, if an empty list is returned, although
+        a rare case, both players met a loose condition, thus nobody wins.
+        """
+        candidates = [a for a in self.agents if not a.disqualified]
+        winning_score = max((agent.boxes_blown_up for agent in candidates), default=0)
+        return [a for a in candidates if a.boxes_blown_up == winning_score]
 
     @staticmethod
     def in_bounds(x: int, y: int) -> bool:
@@ -249,15 +271,7 @@ class Game:
         # appears on the same turn as when the player enters the cell.
 
         bomb = next((b for b in self.bombs if b.x == x and b.y == y), None)
-        if bomb is not None and bomb.timer < Game.BOMB_LIFETIME:
+        if bomb is not None and bomb.timer < Bomb.LIFETIME:
             return False
 
         return self.grid[y][x] == CellType.FLOOR.value
-
-    @property
-    def turn(self) -> int:
-        return self.__turn
-
-    @property
-    def agents(self) -> list[Agent]:
-        return self.__agents
