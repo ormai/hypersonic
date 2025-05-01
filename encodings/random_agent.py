@@ -1,4 +1,5 @@
 from random import randint
+from time import sleep
 
 width, height, my_id = map(int, input().split())
 

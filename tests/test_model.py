@@ -1,9 +1,5 @@
 import pytest
 
-import sys
-
-print(sys.path)
-
 from hypersonic.model import Game
 from hypersonic.entities import Bomb, AspAgent, CellType
 
@@ -28,9 +24,9 @@ def game():
 
 
 def test_tick_bombs(game: Game):
-    bomb = Bomb(0, 9, 5, Game.BOMB_LIFETIME, 3)
+    bomb = Bomb(0, 9, 5)
     game.bombs = [bomb]
-    for i in range(Game.BOMB_LIFETIME - 1, 0, -1):
+    for i in range(Bomb.LIFETIME - 1, 0, -1):
         assert len(game.tick_bombs()) == 0, "No explosions yet"
         assert bomb.timer == i, "Timer decreases at each tick"
     assert game.tick_bombs() == [bomb], "Returns exploded bombs"
@@ -141,3 +137,42 @@ def test_move(game: Game):
 
     game.move(game.agents[0], 4, 0)
     assert (game.agents[0].x, game.agents[0].y) == (4, 0), "Move happens when there is no problem"
+
+
+def test_out_of_bounds_action_coordinates(game: Game):
+    game.process_agent_actions({0: "MOVE -5 0", 1: f"BOMB 0 {Game.WIDTH}"})
+    assert game.agents[0].disqualified and game.agents[1].disqualified, \
+        "An agent giving out of bounds action coordinates gets disqualified"
+
+
+def test_malformed_action(game: Game):
+    game.process_agent_actions({0: "MOVE 0, 0"})
+    assert game.agents[0].disqualified, "Actions must not contain any punctuation"
+
+    game.agents[0].disqualified = False
+    game.process_agent_actions({0: "SLEEP 0 0"})
+    assert game.agents[0].disqualified, "Action commands can either be MOVE or BOMB"
+
+    game.agents[0].disqualified = False
+    game.process_agent_actions({0: "DIE"})
+    assert game.agents[0].disqualified, "Actions must consist of at least three space separated elements"
+
+    game.agents[0].disqualified = False
+    game.process_agent_actions({0: "MOVE 0 0 this is a friendly message"})
+    assert not game.agents[0].disqualified, "Additional message in an action is recognized and valid"
+
+
+def test_get_winners(game: Game):
+    game.agents[0].boxes_blown_up, game.agents[1].boxes_blown_up = 4, 5
+    assert len(winners := game.get_winners()) == 1 and winners[0] is game.agents[1], "Common case"
+
+    game.agents[1].disqualified = True
+    assert len(winners := game.get_winners()) == 1 and winners[0] is game.agents[0], \
+        "If the actual winner is ineligible"
+
+    game.agents[0].disqualified = True
+    assert game.get_winners() == [], "There are no winners if all players are disqualified"
+
+    game.agents[0].disqualified = game.agents[1].disqualified = False
+    game.agents[0].boxes_blown_up = game.agents[1].boxes_blown_up
+    assert game.get_winners() == game.agents, "Draw"
