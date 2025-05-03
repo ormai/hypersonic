@@ -210,7 +210,7 @@ class Game:
             #       the agent the directions are attempted in the order of the
             #       Game.DIRECTIONS list elements.
             x, y = min([(x + dx, y + dy) for dx, dy in Game.DIRECTIONS if self.walkable(x + dx, y + dy)],
-                       key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]), default=None)
+                       key=lambda cell: abs(agent.x - cell[0]) + abs(agent.y - cell[1]))
             log.debug(f"alternative destination is ({x}, {y})")
 
         if next_cell := self.path((agent.y, agent.x), (y, x)):

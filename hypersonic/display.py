@@ -87,46 +87,46 @@ class Display:
         self.player_sprites = [
             {
                 Agent.State.IDLE: {
-                    "down": [sprite(sheet, 2614, 2354 + i * size * i + v_space * i, height=140) for i in range(2)]
-                            + [sprite(sheet, size * i + h_space * i, 2666, height=140) for i in range(11)],
+                    "down": [sprite(sheet, 2614, 2354 + i * size * i + v_space * i, height=140) for i in range(2)] +
+                    [sprite(sheet, size * i + h_space * i, 2666, height=140) for i in range(11)],
                     "up": [sprite(sheet, 3186, 170 + size * i + v_space * i) for i in range(14)],
-                    "right": [sprite(sheet, 1504, 19 + size * i + v_space * i) for i in range(10)]
-                             + [sprite(sheet, 928 + size * i + h_space * i, 1423) for i in range(4)],
-                    "left": [sprite(sheet, 2754, 1100)]
-                            + [sprite(sheet, 1914, 1568 + size * i + v_space * i) for i in range(3)]
-                            + [sprite(sheet, size * i + h_space * i, 2036) for i in range(9)]
+                    "right": [sprite(sheet, 1504, 19 + size * i + v_space * i) for i in range(10)] +
+                             [sprite(sheet, 928 + size * i + h_space * i, 1423) for i in range(4)],
+                    "left": [sprite(sheet, 2754, 1100)] +
+                            [sprite(sheet, 1914, 1568 + size * i + v_space * i) for i in range(3)] +
+                            [sprite(sheet, size * i + h_space * i, 2036) for i in range(9)]
                 },
                 Agent.State.MOVE: {
-                    "down": [sprite(sheet, 5 + size * i + h_space * i, 1714, height=160) for i in range(12)]
-                            + [sprite(sheet, 1637, 1082 + size * i + 34 * i, height=160) for i in range(4)],
-                    "up": [sprite(sheet, 1640, -14 + size * i + 30 * i, height=160) for i in range(7)]
-                          + [sprite(sheet, 145 + size * i + h_space * i, 1552, height=160) for i in range(10)],
-                    "right": [sprite(sheet, 1920, 8 + size * i + v_space * i) for i in range(10)]
-                             + [sprite(sheet, 850 + size * i + h_space * i, 1880) for i in range(7)],
-                    "left": [sprite(sheet, size * i + h_space * i, 1880) for i in range(6)]
-                            + [sprite(sheet, 1773, 165 + size * i + v_space * i) for i in range(11)]
+                    "down": [sprite(sheet, 5 + size * i + h_space * i, 1714, height=160) for i in range(12)] +
+                            [sprite(sheet, 1637, 1082 + size * i + 34 * i, height=160) for i in range(4)],
+                    "up": [sprite(sheet, 1640, -14 + size * i + 30 * i, height=160) for i in range(7)] +
+                    [sprite(sheet, 145 + size * i + h_space * i, 1552, height=160) for i in range(10)],
+                    "right": [sprite(sheet, 1920, 8 + size * i + v_space * i) for i in range(10)] +
+                             [sprite(sheet, 850 + size * i + h_space * i, 1880) for i in range(7)],
+                    "left": [sprite(sheet, size * i + h_space * i, 1880) for i in range(6)] +
+                            [sprite(sheet, 1773, 165 + size * i + v_space * i) for i in range(11)]
                 }
             },
             {
                 Agent.State.IDLE: {
-                    "down": [sprite(sheet, 2194, 12 + size * i + v_space * i, height=140) for i in range(13)]
-                            + [sprite(sheet, 2054, 1884 + size * i + v_space * i, height=140) for i in range(2)],
-                    "up": [sprite(sheet, 2066, 10 + size * i + v_space * i) for i in range(12)]
-                          + [sprite(sheet, 1552 + size * i + h_space * i, 2038) for i in range(3)],
-                    "right": [sprite(sheet, 2344, 18 + size * i + v_space * i) for i in range(13)]
-                             + [sprite(sheet, 1970 + size * i + h_space * i, 2202) for i in range(2)],
-                    "left": [sprite(sheet, size * i + h_space * i, 2190) for i in range(14)]
-                            + [sprite(sheet, 2194, 2034)]
+                    "down": [sprite(sheet, 2194, 12 + size * i + v_space * i, height=140) for i in range(13)] +
+                            [sprite(sheet, 2054, 1884 + size * i + v_space * i, height=140) for i in range(2)],
+                    "up": [sprite(sheet, 2066, 10 + size * i + v_space * i) for i in range(12)] +
+                    [sprite(sheet, 1552 + size * i + h_space * i, 2038) for i in range(3)],
+                    "right": [sprite(sheet, 2344, 18 + size * i + v_space * i) for i in range(13)] +
+                             [sprite(sheet, 1970 + size * i + h_space * i, 2202) for i in range(2)],
+                    "left": [sprite(sheet, size * i + h_space * i, 2190) for i in range(14)] +
+                            [sprite(sheet, 2194, 2034)]
                 },
                 Agent.State.MOVE: {
-                    "down": [sprite(sheet, 2104 + i * size + h_space * i, 2338, height=160) for i in range(2)]
-                            + [sprite(sheet, 2480, i * size + v_space * i, height=160) for i in range(15)],
-                    "up": [sprite(sheet, 2340, 2030 + size * i + i * v_space, height=160) for i in range(2)]
-                          + [sprite(sheet, 5 + size * i + h_space * i, 2340, height=160) for i in range(15)],
-                    "right": [sprite(sheet, 2252 + i * size + i * h_space, 2500) for i in range(2)]
-                             + [sprite(sheet, 2626, 5 + i * size + i * v_space) for i in range(15)],
-                    "left": [sprite(sheet, i * size + i * h_space, 2505) for i in range(16)]
-                            + [sprite(sheet, 2473, 2349)]
+                    "down": [sprite(sheet, 2104 + i * size + h_space * i, 2338, height=160) for i in range(2)] +
+                            [sprite(sheet, 2480, i * size + v_space * i, height=160) for i in range(15)],
+                    "up": [sprite(sheet, 2340, 2030 + size * i + i * v_space, height=160) for i in range(2)] +
+                    [sprite(sheet, 5 + size * i + h_space * i, 2340, height=160) for i in range(15)],
+                    "right": [sprite(sheet, 2252 + i * size + i * h_space, 2500) for i in range(2)] +
+                             [sprite(sheet, 2626, 5 + i * size + i * v_space) for i in range(15)],
+                    "left": [sprite(sheet, i * size + i * h_space, 2505) for i in range(16)] +
+                            [sprite(sheet, 2473, 2349)]
                 }
             }
         ]
@@ -145,9 +145,11 @@ class Display:
             case pygame.MOUSEBUTTONDOWN | pygame.MOUSEBUTTONUP:
                 pos = event.pos[0] // self.scale, event.pos[1] // self.scale
                 if self.ready and self.game.running:
-                    game.paused = (self.ready and game.paused and not
-                    self.start_button.is_clicked(pos, event.button == 1) or not game.paused
-                                   and self.stop_button.is_clicked(pos, event.button == 1))
+                    game.paused = (
+                        self.ready
+                        and game.paused and not self.start_button.is_clicked(pos, event.button == 1)
+                        or not game.paused and self.stop_button.is_clicked(pos, event.button == 1)
+                    )
 
     def draw(self, delta_time: float, turn_progress: float):
         """Draw grid and all entities, gets called at every frame"""
