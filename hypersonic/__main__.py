@@ -15,7 +15,7 @@ def main():
     last_time = time()
 
     game = Game([
-        ExecutableAgent(0, Game.START_POSITIONS[0],[sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
+        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
         AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "test")], "AspAgent")
     ])
     display = Display(game)

@@ -164,10 +164,6 @@ class ExecutableAgent(Agent):
 
         log.debug(f"Started {self.name} (PID: {self.process.pid}): {' '.join(cmd)}")
 
-    def __terminated(self) -> bool:
-        """Check if the underlying subprocess has terminated"""
-        return self.process is None or self.process.poll() is not None
-
     @override
     def _serialize_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]) -> str:
         entities = [f"{a.type} {a.id} {a.x} {a.y} {a.bombs_left} {a.bomb_range}" for a in agents]
@@ -180,14 +176,14 @@ class ExecutableAgent(Agent):
 
     def __send(self, data: str):
         """Send turn state information to the subprocess"""
-        if self.__terminated() or self.process.stdin is None:
-            raise ConnectionError(f"Cannot send data to agent {self.id}")
-
-        try:
-            self.process.stdin.write(data + "\n")
-            self.process.stdin.flush()
-        except (IOError, BrokenPipeError, OSError) as e:
-            raise ConnectionError(f"Error sending data to agent {self.id}: {e}")
+        if self.process is not None and self.process.poll() is None and self.process.stdin is not None:
+            try:
+                self.process.stdin.write(data + "\n")
+                self.process.stdin.flush()
+            except (IOError, BrokenPipeError, OSError) as e:
+                raise ConnectionError(f"Error sending data to {self.name}: {e}")
+        else:
+            raise ConnectionError(f"Cannot send data to {self.name}")
 
     @override
     def send_prelude(self, width: int, height: int):
@@ -198,32 +194,30 @@ class ExecutableAgent(Agent):
         """
         Receive data to the agent subprocess
 
-        Parameters:
+        Args:
             turn (int): the current turn
 
         Returns:
             the agent output, an action to carry out
         """
-        if self.__terminated() or self.process.stdout is None:
-            raise ConnectionError(f"Cannot send data to agent {self.id}")
+        if self.process is not None and self.process.poll() is None and self.process.stdout is not None:
+            if stderr := self.__read_stderr_non_blocking():
+                log.debug(f"--- {self.name} stderr\n{stderr.strip()}\n" +
+                          f"--- end of {self.name} stderr")
 
-        if stderr := self.__read_stderr_non_blocking():
-            log.debug(f"--- {self.name} stderr\n{stderr.strip()}\n" +
-                      f"--- end of {self.name} stderr")
-
-        timeout = Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S
-        if sys.platform == 'win32':
-            return self.output_queue.get(timeout=timeout).strip()
-        else:
-            ready_to_read, _, _ = select([self.process.stdout.fileno()], [], [], timeout)
-            if ready_to_read:
-                if output := self.process.stdout.readline():
-                    return str(output).strip()
-        log.warning(f"{self.name} is disqualified for not providing output in time")
+            timeout = Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S
+            if sys.platform == 'win32':
+                return self.output_queue.get(timeout=timeout).strip()
+            else:
+                ready_to_read, _, _ = select([self.process.stdout.fileno()], [], [], timeout)
+                if ready_to_read:
+                    if output := self.process.stdout.readline():
+                        return str(output).strip()
+            log.warning(f"{self.name} is disqualified for not providing output in time")
         return ""
 
     def __read_stderr_non_blocking(self) -> str | None:
-        if not self.__terminated() and self.process.stderr is not None:
+        if self.process is not None and self.process.poll() is None and self.process.stderr is not None:
             if sys.platform == 'win32':
                 stderr_lines = []
                 while True:
@@ -241,22 +235,23 @@ class ExecutableAgent(Agent):
                     return output
                 except (IOError, OSError) as e:
                     log.warning(f"Error reading stderr from agent {self.id}: {e}")
-        return None
+            log.warning(f"{self.name} is disqualified for not providing output in time")
+        return ""
 
     @override
     def terminate(self):
         """Terminate the agent subprocess"""
-        if not self.__terminated():
+        if self.process is not None and self.process.poll() is None:
             try:
                 self.process.terminate()
                 self.process.wait(timeout=0.5)  # Give it a moment to terminate
             except TimeoutExpired:
-                log.warning(f"Agent {self.id} did not terminate gracefully, killing")
+                log.warning(f"{self.name} did not terminate gracefully, killing")
                 self.process.kill()
             except Exception as e:
-                log.error(f"Error during agent {self.id} termination: {e}")
+                log.error(f"Error during {self.name} termination: {e}")
             self.process = None
-            log.debug(f"Agent {self.id} terminated")
+            log.debug(f"{self.name} terminated")
 
 
 class PlaceBomb(Predicate):
@@ -420,22 +415,24 @@ class AspAgent(Agent):
             log.warning(f"{self.name} is disqualified because it did not respond in time")
             return ""
 
-        if err := self.answer_sets.get_errors():
-            log.debug(self.handler.get_input_program(0).get_programs()
-                      + self.handler.get_input_program(1).get_programs()
-                      + self.handler.get_input_program(2).get_programs())
-            log.error(err)
+        if self.answer_sets is not None and (err := self.answer_sets.get_errors()):
+            asp_program = ""
+            for key in range(3):
+                if program := self.handler.get_input_program(key):
+                    asp_program += program.get_programs()
+            log.error(err + "\n" + asp_program)
             return ""
 
         # Cfr. handler options. Gives only the optimum and can either contain
         # placeBomb/2 or move/2. If contains neither it's invalid.
 
-        for atom in self.answer_sets.get_answer_sets()[0].get_atoms():
-            if isinstance(atom, Move):
-                return f"MOVE {atom.x} {atom.y}"
-            else:
-                return f"BOMB {atom.x} {atom.y}"
-        log.debug(f"{self.name} provided an empty answer set")
+        if self.answer_sets is not None:
+            for atom in self.answer_sets.get_answer_sets()[0].get_atoms():
+                if isinstance(atom, Move):
+                    return f"MOVE {atom.x} {atom.y}"
+                else:
+                    return f"BOMB {atom.x} {atom.y}"
+            log.debug(f"{self.name} provided an empty answer set")
         return ""
 
     def __timeout(self):
