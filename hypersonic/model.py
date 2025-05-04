@@ -87,17 +87,24 @@ class Game:
                         box_hit_by[(nx, ny)].add(bomb.owner_id)
                         break  # explosion stops after hitting a box
 
+                    bomb_found = False
+
                     # explosion triggers bombs nearby
                     for other_bomb in self.bombs:
-                        if other_bomb.timer > 0 and other_bomb.x == nx and other_bomb.y == ny:
-                            if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
-                                log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
-                                other_bomb.timer = 0  # detonate immediately
-                                # bomb exploded so return it to the agent
-                                self.agents[other_bomb.owner_id].bombs_left += 1
-                                if other_bomb not in queue:
-                                    queue.append(other_bomb)
-                                processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
+                        if other_bomb.x == nx and other_bomb.y == ny:
+                            bomb_found = True
+                            if other_bomb.timer > 0:
+                                if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
+                                    log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
+                                    other_bomb.timer = 0  # detonate immediately
+                                    # bomb exploded so return it to the agent
+                                    self.agents[other_bomb.owner_id].bombs_left += 1
+                                    if other_bomb not in queue:
+                                        queue.append(other_bomb)
+                                    processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
+
+                    if bomb_found:
+                        break
 
         # Update the main explosion set for collision detection this turn
         self.explosions = newly_exploded_coordinates
