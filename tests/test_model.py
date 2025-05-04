@@ -72,6 +72,37 @@ def test_propagate_explosion_destroys_boxes(game: Game):
     assert game.grid[by + 2][bx] == CellType.BOX.value, "Explosion propagation stops after a box gets hit"
 
 
+def test_both_players_hit_the_same_box_in_the_same_turn(game: Game):
+    # grid: B0.....
+    #       .......
+    #       .B.....
+    # B: bomb, 0: box, .: floor
+    game.grid[0][1] = CellType.BOX.value
+    game.bombs = [Bomb(0, 0, 0), Bomb(1, 1, 2)]
+    game.bombs[0].timer = game.bombs[1].timer = 0
+    game.propagate_explosions(game.bombs)
+    assert game.bombs == [], "Both bombs exploded"
+    assert game.grid[0][1] == CellType.FLOOR.value, "The box is destroyed"
+    assert all(a.boxes_blown_up == 1 for a in game.agents), "Both players are awarded"
+
+
+def test_single_obstruction_blocks_multiple_explosions(game: Game):
+    # grid: ..0....
+    #       .B00...
+    #       ..B....
+    # B: bomb, 0: box, .: floor
+    game.grid[0][2] = CellType.BOX.value
+    game.grid[1][2] = CellType.BOX.value
+    game.grid[1][3] = CellType.BOX.value
+    game.bombs = [Bomb(0, 1, 1), Bomb(1, 2, 2)]
+    game.bombs[0].timer = game.bombs[1].timer = 0
+    game.propagate_explosions(game.bombs)
+    assert game.bombs == [], "Both bombs exploded"
+    assert game.grid[1][2] == CellType.FLOOR.value, "The box is destroyed"
+    assert game.grid[0][2] == CellType.BOX.value and game.grid[1][3] == CellType.BOX.value, "The other boxes are not destroyed"
+    assert all(a.boxes_blown_up == 1 for a in game.agents), "Both players are awarded"
+
+
 def test_path(game: Game):
     for x in range(12, 0, -1):
         next_cell = game.path((5, x), (5, 0))
