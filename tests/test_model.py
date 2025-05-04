@@ -103,6 +103,20 @@ def test_single_obstruction_blocks_multiple_explosions(game: Game):
     assert all(a.boxes_blown_up == 1 for a in game.agents), "Both players are awarded"
 
 
+def test_explosion_stops_at_bomb(game: Game):
+    # grid: ...0...
+    #       ...B...
+    #       ...B...
+    # B: bomb, 0: box, .: floor
+    game.grid[0][3] = CellType.BOX.value
+    game.bombs = [Bomb(1, 3, 2), Bomb(0, 3, 1)]
+    game.bombs[0].timer = game.bombs[1].timer = 0
+    game.propagate_explosions(game.bombs)
+    assert game.bombs == [], "Both bombs exploded"
+    assert game.grid[0][3] == CellType.FLOOR.value, "The box is destroyed"
+    assert game.agents[0].boxes_blown_up == 1 and game.agents[1].boxes_blown_up == 0, "Only player 0 gets awarded"
+
+
 def test_path(game: Game):
     for x in range(12, 0, -1):
         next_cell = game.path((5, x), (5, 0))
