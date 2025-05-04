@@ -1,5 +1,5 @@
 from random import choice
-from collections import deque
+from collections import deque, defaultdict
 
 from .entities import Agent, Bomb, CellType
 from .layouts import LAYOUTS
@@ -67,6 +67,7 @@ class Game:
     def propagate_explosions(self, exploding_bombs: list[Bomb]):
         newly_exploded_coordinates: set[tuple[int, int]] = set()
         processed_bomb_coordinates: set[tuple[int, int]] = set((b.x, b.y) for b in exploding_bombs)
+        box_hit_by: dict[tuple[int, int], set[int]] = defaultdict(set)  # box coordinates -> set of owner_id
 
         # In this league, players are not hurt by bombs (they are using practice explosives).
 
@@ -83,24 +84,37 @@ class Game:
 
                     # destroy boxes hit by explosion
                     if self.grid[ny][nx] == CellType.BOX.value:
-                        self.grid[ny][nx] = CellType.FLOOR.value
-                        self.agents[bomb.owner_id].boxes_blown_up += 1
+                        box_hit_by[(nx, ny)].add(bomb.owner_id)
                         break  # explosion stops after hitting a box
+
+                    bomb_found = False
 
                     # explosion triggers bombs nearby
                     for other_bomb in self.bombs:
-                        if other_bomb.timer > 0 and other_bomb.x == nx and other_bomb.y == ny:
-                            if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
-                                log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
-                                other_bomb.timer = 0  # detonate immediately
-                                # bomb exploded so return it to the agent
-                                self.agents[other_bomb.owner_id].bombs_left += 1
-                                if other_bomb not in queue:
-                                    queue.append(other_bomb)
-                                processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
+                        if other_bomb.x == nx and other_bomb.y == ny:
+                            bomb_found = True
+                            if other_bomb.timer > 0:
+                                if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
+                                    log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
+                                    other_bomb.timer = 0  # detonate immediately
+                                    # bomb exploded so return it to the agent
+                                    self.agents[other_bomb.owner_id].bombs_left += 1
+                                    if other_bomb not in queue:
+                                        queue.append(other_bomb)
+                                    processed_bomb_coordinates.add((other_bomb.x, other_bomb.y))
+
+                    if bomb_found:
+                        break
 
         # Update the main explosion set for collision detection this turn
         self.explosions = newly_exploded_coordinates
+
+        # destroy boxes and assign points to owners
+        for (x, y), owners in box_hit_by.items():
+            if self.grid[y][x] == CellType.BOX.value:
+                self.grid[y][x] = CellType.FLOOR.value
+                for owner_id in owners:
+                    self.agents[owner_id].boxes_blown_up += 1
 
         # Remove chain-reacted bombs from main list
         self.bombs = [bomb for bomb in self.bombs if bomb.timer > 0]
