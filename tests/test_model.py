@@ -117,6 +117,41 @@ def test_explosion_stops_at_bomb(game: Game):
     assert game.agents[0].boxes_blown_up == 1 and game.agents[1].boxes_blown_up == 0, "Only player 0 gets awarded"
 
 
+def test_both_players_place_a_bomb_in_the_same_turn_and_position(game: Game):
+    # grid: .......
+    #       ...0...
+    #       ...B...
+    # B: bomb, 0: box, .: floor
+    game.grid[1][3] = CellType.BOX.value
+    game.agents[0].x = game.agents[1].x = 3
+    game.agents[0].y = game.agents[1].y = 2
+    game.process_agent_actions({0:"BOMB 3 2", 1:"BOMB 3 2"})
+    assert game.bombs[0].x == game.bombs[1].x  and game.bombs[0].y == game.bombs[1].y, "Bombs are on the same position"
+    game.bombs[0].timer = game.bombs[1].timer = 0
+    game.propagate_explosions(game.bombs)
+    assert game.bombs == [], "Both bombs exploded"
+    assert game.grid[1][3] == CellType.FLOOR.value, "The box is destroyed"
+    assert all(a.boxes_blown_up == 1 for a in game.agents), "Both players are awarded"
+
+
+def test_both_players_place_a_bomb_in_the_same_position_but_different_turn(game: Game):
+    # grid: .......
+    #       ...0...
+    #       ...B...
+    # B: bomb, 0: box, .: floor
+    game.grid[1][3] = CellType.BOX.value
+    game.agents[0].x = game.agents[1].x = 3
+    game.agents[0].y = game.agents[1].y = 2
+    game.process_agent_actions({0:"BOMB 3 2"})
+    game.tick_bombs()
+    game.process_agent_actions({1:"BOMB 3 2"})
+    assert len(game.bombs) == 1, "Only one bomb placed"
+    game.bombs[0].timer = 0
+    game.propagate_explosions(game.bombs)
+    assert game.bombs == [], "Bomb exploded"
+    assert game.grid[1][3] == CellType.FLOOR.value, "The box is destroyed"
+
+
 def test_path(game: Game):
     for x in range(12, 0, -1):
         next_cell = game.path((5, x), (5, 0))
