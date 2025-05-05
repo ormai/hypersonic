@@ -439,3 +439,23 @@ class AspAgent(Agent):
         with self.lock:
             self.disqualified = True
             self.run_condition.notify()
+
+
+class Bombardino(AspAgent):
+    def __init__(self, agent_id: int, start_cell: tuple[int, int], asp_programs: list[str], name: str = ""):
+        super().__init__(agent_id, start_cell, asp_programs, name)
+        self.custom_input = ASPInputProgram()
+        self.handler.add_program(self.custom_input)
+        self.previous_turn_output = ""
+
+    @override
+    def receive(self, turn: int) -> str:
+        action = super().receive(turn)
+        _, x, y = action.split()
+        self.previous_turn_output = f"prevDestination({x},{y})."
+        return action
+
+    @override
+    def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
+        self.custom_input.set_programs(self.previous_turn_output)
+        super().send_turn_state(agents, bombs, grid)

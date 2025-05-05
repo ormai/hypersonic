@@ -1,11 +1,10 @@
 from time import time
-import sys
 import pygame
 import os
 
 from .display import Display
 from .model import Game
-from .entities import ExecutableAgent, AspAgent
+from .entities import Bombardino, AspAgent
 
 
 def main():
@@ -15,7 +14,7 @@ def main():
     last_time = time()
 
     game = Game([
-        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
+        Bombardino(0, Game.START_POSITIONS[0], [os.path.join("encodings", "bombardino")], "Bombardino"),
         AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random")
     ])
     display = Display(game)
