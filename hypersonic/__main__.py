@@ -18,6 +18,7 @@ def main():
         # Bombardino(1, Game.START_POSITIONS[1], [os.path.join("encodings", "bombardino")], "C_Bombardino"),
         Bombardino(1, Game.START_POSITIONS[1], [os.path.join("encodings", "crappier_bombardino")], "C_Bombardino"),
         # AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "test")], "Random")
+        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random")
     ])
     display = Display(game)
     clock = pygame.time.Clock()
