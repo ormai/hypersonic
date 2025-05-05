@@ -176,7 +176,7 @@ class Game:
                 if cmd == "BOMB":
                     # bomb placement and movement happen in the same turn
                     if agent.bombs_left > 0:
-                        if not any(b.x == agent.x and b.y == agent.y for b in self.bombs):
+                        if not any(b.x == agent.x and b.y == agent.y and b.timer < Bomb.LIFETIME for b in self.bombs):
                             self.bombs.append(Bomb(agent.id, agent.x, agent.y))
                             agent.bombs_left -= 1
                             log.info(f"{agent.name} places a bomb at ({agent.x}, {agent.y})")
