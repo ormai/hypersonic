@@ -270,13 +270,13 @@ class Display:
             if self.explosion_frame_count >= self.explosion_speed:
                 self.explosion_frame_count = 0.0
                 self.explosion_frame = (self.explosion_frame + 1) % len(self.fire)
-        for x, y in self.game.explosions:
-            x, y = Display.cell_to_px(x, y)
-            img = self.fire[self.explosion_frame]
-            rect = self.screen.blit(img,
-                                    (x - img.get_width() // 2, y - img.get_height() // 2 - img.get_height() * 0.05))
-            if __debug__:
-                pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
+            for x, y in self.game.explosions:
+                x, y = Display.cell_to_px(x, y)
+                img = self.fire[self.explosion_frame]
+                rect = self.screen.blit(img,
+                                        (x - img.get_width() // 2, y - img.get_height() // 2 - img.get_height() * 0.05))
+                if __debug__:
+                    pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
 
     def show_final_message(self, message: str):
         win_surface = self.big_font.render(message, True, (255, 215, 0))
