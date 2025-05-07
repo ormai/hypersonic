@@ -184,7 +184,7 @@ class Game:
                             log.warning(f"{agent.name} tried to place a bomb " +
                                         f"at ({x}, {y}), but there is one there already")
                     else:
-                        log.info(f"{agent.name} wants to place a bomb but cannot")
+                        log.info(f"{agent.name} wants to place a bomb at ({x}, {y}) but cannot")
                 elif cmd != "MOVE":
                     raise ValueError("Invalid command")
                 self.move(agent, x, y)
@@ -197,6 +197,7 @@ class Game:
     def move(self, agent: Agent, x: int, y: int):
         if agent.x == x and agent.y == y:
             agent.state = Agent.State.IDLE
+            log.info(f"{agent.name} stays at ({x}, {y})")
             return  # otherwise it loops between two neighboring cells
 
         # > Using the MOVE command followed by grid coordinates will make the
