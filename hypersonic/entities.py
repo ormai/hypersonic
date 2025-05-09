@@ -387,6 +387,7 @@ class AspAgent(Agent):
             [f"player({a.id},{a.x},{a.y},{a.bombs_left})." for a in agents] +
             [f"bomb({b.owner_id},{b.x},{b.y},{b.timer})." for b in bombs]
         )
+        log.info(f"Serialized turn state: {out}")
         return out
 
     @override
