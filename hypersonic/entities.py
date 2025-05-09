@@ -380,12 +380,14 @@ class AspAgent(Agent):
                               agents: list[Agent],
                               bombs: list[Bomb],
                               grid: list[list[str]]) -> str:
-        return "".join(
+        out = "".join(
             [f"box({x},{y})." for y in range(len(grid)) for x in range(len(grid[y])) if
              grid[y][x] == CellType.BOX.value] +
             [f"player({a.id},{a.x},{a.y},{a.bombs_left})." for a in agents] +
             [f"bomb({b.owner_id},{b.x},{b.y},{b.timer})." for b in bombs]
         )
+        log.info(f"Serialized turn state: {out}")
+        return out
 
     @override
     def send_prelude(self, width: int, height: int):
