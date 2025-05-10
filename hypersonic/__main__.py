@@ -16,7 +16,7 @@ def main():
 
     game = Game([
         ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
-        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "test")], "AspAgent")
+        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random")
     ])
     display = Display(game)
     clock = pygame.time.Clock()
@@ -46,5 +46,4 @@ def main():
         clock.tick(Display.FRAME_RATE)
 
 
-if __name__ == "__main__":
-    main()
+main()
