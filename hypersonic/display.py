@@ -35,7 +35,7 @@ class Display:
         win_width = pygame.display.get_desktop_sizes()[0][0] * 0.75
         self.scale = win_width / width
         win_height = win_width // (16 / 9)
-        log.debug(f"Window size ({width}, {height}), scale: {self.scale:.2f}")
+        log.debug(f"Window size ({win_width:.0f}, {win_height:.0f}), scale: {self.scale:.2f}")
         self.window = pygame.display.set_mode((win_width, win_height))
         self.screen = pygame.Surface((width, height))
 

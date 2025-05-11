@@ -12,7 +12,7 @@ class ColoredFormatter(logging.Formatter):
     YELLOW = '\033[33m'
     MAGENTA = '\033[35m'
     BOLD = '\033[1m'
-    FORMAT = '%(asctime)s %(filename)s:%(lineno)d %(levelname)s: %(message)s '
+    FORMAT = '%(relativeCreated).2f %(filename)s:%(lineno)d %(levelname)s: %(message)s '
     FORMATTERS = {
         logging.DEBUG: logging.Formatter(MAGENTA + FORMAT + RESET),
         logging.INFO: logging.Formatter(GREEN + FORMAT + RESET),
