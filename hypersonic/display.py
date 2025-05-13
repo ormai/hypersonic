@@ -88,7 +88,7 @@ class Display:
             {
                 Agent.State.IDLE: {
                     "down": [sprite(sheet, 2614, 2354 + i * size * i + v_space * i, height=140) for i in range(2)] +
-                    [sprite(sheet, size * i + h_space * i, 2666, height=140) for i in range(11)],
+                            [sprite(sheet, size * i + h_space * i, 2666, height=140) for i in range(11)],
                     "up": [sprite(sheet, 3186, 170 + size * i + v_space * i) for i in range(14)],
                     "right": [sprite(sheet, 1504, 19 + size * i + v_space * i) for i in range(10)] +
                              [sprite(sheet, 928 + size * i + h_space * i, 1423) for i in range(4)],
@@ -100,7 +100,7 @@ class Display:
                     "down": [sprite(sheet, 5 + size * i + h_space * i, 1714, height=160) for i in range(12)] +
                             [sprite(sheet, 1637, 1082 + size * i + 34 * i, height=160) for i in range(4)],
                     "up": [sprite(sheet, 1640, -14 + size * i + 30 * i, height=160) for i in range(7)] +
-                    [sprite(sheet, 145 + size * i + h_space * i, 1552, height=160) for i in range(10)],
+                          [sprite(sheet, 145 + size * i + h_space * i, 1552, height=160) for i in range(10)],
                     "right": [sprite(sheet, 1920, 8 + size * i + v_space * i) for i in range(10)] +
                              [sprite(sheet, 850 + size * i + h_space * i, 1880) for i in range(7)],
                     "left": [sprite(sheet, size * i + h_space * i, 1880) for i in range(6)] +
@@ -112,7 +112,7 @@ class Display:
                     "down": [sprite(sheet, 2194, 12 + size * i + v_space * i, height=140) for i in range(13)] +
                             [sprite(sheet, 2054, 1884 + size * i + v_space * i, height=140) for i in range(2)],
                     "up": [sprite(sheet, 2066, 10 + size * i + v_space * i) for i in range(12)] +
-                    [sprite(sheet, 1552 + size * i + h_space * i, 2038) for i in range(3)],
+                          [sprite(sheet, 1552 + size * i + h_space * i, 2038) for i in range(3)],
                     "right": [sprite(sheet, 2344, 18 + size * i + v_space * i) for i in range(13)] +
                              [sprite(sheet, 1970 + size * i + h_space * i, 2202) for i in range(2)],
                     "left": [sprite(sheet, size * i + h_space * i, 2190) for i in range(14)] +
@@ -122,7 +122,7 @@ class Display:
                     "down": [sprite(sheet, 2104 + i * size + h_space * i, 2338, height=160) for i in range(2)] +
                             [sprite(sheet, 2480, i * size + v_space * i, height=160) for i in range(15)],
                     "up": [sprite(sheet, 2340, 2030 + size * i + i * v_space, height=160) for i in range(2)] +
-                    [sprite(sheet, 5 + size * i + h_space * i, 2340, height=160) for i in range(15)],
+                          [sprite(sheet, 5 + size * i + h_space * i, 2340, height=160) for i in range(15)],
                     "right": [sprite(sheet, 2252 + i * size + i * h_space, 2500) for i in range(2)] +
                              [sprite(sheet, 2626, 5 + i * size + i * v_space) for i in range(15)],
                     "left": [sprite(sheet, i * size + i * h_space, 2505) for i in range(16)] +
@@ -146,9 +146,9 @@ class Display:
                 pos = event.pos[0] // self.scale, event.pos[1] // self.scale
                 if self.ready and self.game.running:
                     game.paused = (
-                        self.ready
-                        and game.paused and not self.start_button.is_clicked(pos, event.button == 1)
-                        or not game.paused and self.stop_button.is_clicked(pos, event.button == 1)
+                            self.ready
+                            and game.paused and not self.start_button.is_clicked(pos, event.button == 1)
+                            or not game.paused and self.stop_button.is_clicked(pos, event.button == 1)
                     )
 
     def draw(self, delta_time: float, turn_progress: float):
@@ -174,6 +174,14 @@ class Display:
                                       f"{winners[0].name} wins" if len(winners) == 1 else "No winner")
                 self.game.paused = True
             self.show_final_message(self.end_game_info)
+
+        if __debug__:
+            for x in range(Game.WIDTH):
+                for y in range(Game.HEIGHT):
+                    self.screen.blit(self.font.render(f"{x} {y}", True, (0, 255, 0), Display.TEXT_BACKGROUND),
+                                     (x * Display.CELL_SIZE + Display.GRID_OFFSET[0],
+                                      y * Display.CELL_SIZE + Display.GRID_OFFSET[
+                                          1] + Display.CELL_SIZE - self.font.get_height()))
 
         self.window.blit(pygame.transform.smoothscale(self.screen, self.window.get_size()), (0, 0))
         pygame.display.flip()
