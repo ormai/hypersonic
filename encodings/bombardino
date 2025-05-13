@@ -42,6 +42,7 @@ bombPlaced :- placeBomb(_, _).
 :- not destinationReached, bombPlaced.
 
 haveBomb :- myId(Id), player(Id, _, _, 1).
+haveBomb :- myId(Id), bomb(Id, _, _, 1).
 
 :- prevDestination(X, Y), currentPosition(X, Y), haveBomb, placeBomb(X, Y).
 :- destinationReached, move(_, _).

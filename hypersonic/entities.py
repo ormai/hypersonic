@@ -338,7 +338,8 @@ class AspAgent(Agent):
 
         self.handler = DesktopHandler(DLV2DesktopService(os.path.join("lib", dlv_lib)))
         self.handler.add_option(OptionDescriptor("--silent"))
-        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2"))
+        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2,destination/2"))
+        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2,destination/2"))
         self.handler.add_option(OptionDescriptor("--printonlyoptimum"))
 
         self.turn_state_program = ASPInputProgram()
@@ -398,7 +399,9 @@ class AspAgent(Agent):
 
     @override
     def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
-        self.turn_state_program.set_programs(self._serialize_turn_state(agents, bombs, grid))
+        out = self._serialize_turn_state(agents, bombs, grid)
+        self.turn_state_program.set_programs(out)
+        log.info(out)
 
         with self.lock:
             self.is_running = True
@@ -412,6 +415,7 @@ class AspAgent(Agent):
             while self.is_running and not self.disqualified:
                 self.run_condition.wait()
         timer.cancel()
+        
 
         if self.disqualified:
             log.warning(f"{self.name} is disqualified because it did not respond in time")
@@ -455,6 +459,7 @@ class Bombardino(AspAgent):
         action = super().receive(turn)
         _, x, y = action.split()
         self.previous_turn_output = f"prevDestination({x},{y})."
+        log.info(self.previous_turn_output)
         return action
 
     @override
