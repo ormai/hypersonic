@@ -28,7 +28,11 @@ bombLifetime(8). % turns
 
 % Basic knowledge
 currentPosition(X, Y) :- myId(Id), player(Id, X, Y, _).
+
+% Between one turn and the next if we are placing
+% a bomb back to back BombsLeft will always be zero.
 haveBomb :- myId(Id), player(Id, _, _, 1).
+haveBomb :- myId(Id), bomb(Id, _, _, 1).
 
 
 % # GUESS
@@ -69,16 +73,19 @@ boxesHit(X, Y, N) :- cell(X, Y), not box(X, Y),
 
 destinationReached :- prevDestination(X, Y), currentPosition(X, Y).
 bombPlaced :- placeBomb(_, _).
+
+% Place the bomb if and only if we reached the optimum desination
 :- destinationReached, not bombPlaced.
 :- not destinationReached, bombPlaced.
 
+% Placing the bomb at the currentPosition would waste a turn
 :- prevDestination(X, Y), currentPosition(X, Y), haveBomb, placeBomb(X, Y).
 :- destinationReached, move(_, _).
 
 
 % # OPTIMIZE
 
-% maximize number of boxes hit
+% Maximize number of boxes hit
 :~ destination(X, Y), boxesHit(X, Y, N), maxHittableBoxes(Max). [Max - N@2]
 
 % Manhattan distance is used
