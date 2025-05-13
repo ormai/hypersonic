@@ -9,7 +9,7 @@ from hypersonic.layouts import LAYOUTS
 
 @pytest.fixture(autouse=True)
 def game():
-    agent = Bombardino(0, (0, 0), [os.path.join("encodings", "bombardino.lp")])
+    agent = Bombardino(0, (0, 0), [os.path.join("encodings", "bombardino")])
     enemy = AspAgent(1, (12, 10), [])
     enemy.handler.get_input_program(1).add_program("move(12, 10).")  # dummy
     _game = Game([agent, enemy])
