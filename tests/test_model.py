@@ -4,10 +4,7 @@ from hypersonic.model import Game
 from hypersonic.entities import Bomb, AspAgent, CellType
 
 
-@pytest.fixture(autouse=True)
-def game():
-    _game = Game([AspAgent(i, Game.START_POSITIONS[i], []) for i in range(2)])
-    _game.grid = [list(row) for row in [
+EMPTY_GRID =  [
         ".............",
         ".............",
         ".............",
@@ -19,7 +16,13 @@ def game():
         ".............",
         ".............",
         "............."
-    ]]
+    ]
+
+
+@pytest.fixture(autouse=True)
+def game():
+    _game = Game([AspAgent(i, Game.START_POSITIONS[i], []) for i in range(2)])
+    _game.grid = [list(row) for row in EMPTY_GRID]
     yield _game
 
 
