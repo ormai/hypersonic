@@ -113,6 +113,8 @@ boxesHit(X, Y, N) :- cell(X, Y), not box(X, Y),
 boxesLeft(Count) :- Count = #count { X, Y : box(X, Y),
                                             not threatenedBox(X, Y) }.
 
+enemy(Id) :- myId(Me), player(Id, _, _, _), Me != Id.
+
 bombCooldown(Player, Cooldown) :- not hasBomb(Player),
                                   bomb(Player, _, _, Cooldown).
 bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
@@ -149,7 +151,35 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
    &abs(DxEnemyBomb + DyEnemyBomb - EnemyCooldown; EnemyWait),
    bombLifetime(BombLifetime),
    MyWait + BombLifetime > EnemyWait. % Enemy could make it
-   [1@2]
+   [1@4]
+
+
+% If we are on a cell, which is not the target, on which a bomb would hit at
+% least a box, and we don't get in a disadvantage situation with respect to
+% the enemy, then we should place a bomb here.
+
+:~ currentPosition(X, Y), destination(DstX, DstY), myId(Me), hasBomb(Me),
+   boxesHit(X, Y, BoxesHit), BoxesHit > 0, bombLifetime(BombLifetime),
+   &abs(X - DstX; Dx), &abs(Y - DstY; Dy),
+   player(Enemy, _, _, _), Enemy != Me, bombCooldown(EnemyCooldown),
+   Dx + Dy >= BombLifetime - EnemyCooldown,
+   not placeBomb(X, Y).
+   [1@5]
+
+
+% We must strive to steal 🙂
+
+steal(X, Y) :- enemy(Enemy), bomb(Enemy, BombX, BombY, Timer), box(BoxX, BoxY),
+   &abs(BombX - BoxX; DxBombBox), &abs(BombY - BoxY; DyBombBox),
+   inLine(BombX, BombY, BoxX, BoxY), DxBombBox + DyBombBox = 2,
+   X = (BombX + BoxX) / 2, Y = (BombY + BoxY) / 2,
+   currentPosition(Px, Py), &abs(Px - X; Dx), &abs(Py - Y; Dy),
+   myId(Me), bombCooldown(Me, Cooldown), Cooldown <= Timer,
+   Dx + Dy <= Timer.
+
+:~ steal(X, Y), currentPosition(X, Y), not bombPlaced. [1@6]
+:~ steal(X, Y), currentPosition(Px, Py), Px != X, not move(X, Y). [1@6]
+:~ steal(X, Y), currentPosition(Px, Py), Py != Y, not move(X, Y). [1@6]
 
 
 % [1]: https://i-dlv.readthedocs.io/en/latest/Basic/basic.html#the-gco
