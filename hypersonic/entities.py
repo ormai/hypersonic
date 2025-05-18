@@ -453,6 +453,12 @@ class AspAgent(Agent):
 
 
 class Bombardino(AspAgent):
+    """
+    Further specialization of the AspAgent specific to Bombardino. This class
+    handles the storage of state across turns in the form of ASP atoms.
+    It also provides more debugging information.
+    """
+
     def __init__(self, agent_id: int, start_cell: tuple[int, int], asp_programs: list[str], name: str = ""):
         super().__init__(agent_id, start_cell, asp_programs, name)
         self.custom_input = ASPInputProgram()
@@ -462,6 +468,8 @@ class Bombardino(AspAgent):
     @override
     def receive(self, turn: int) -> str:
         action = super().receive(turn)
+        if action == "":
+            return action
         _, x, y = action.split()
         self.previous_turn_output = f"prevDestination({x},{y})."
         log.info(self.previous_turn_output)
@@ -471,3 +479,7 @@ class Bombardino(AspAgent):
     def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
         self.custom_input.set_programs(self.previous_turn_output)
         super().send_turn_state(agents, bombs, grid)
+
+        if __debug__:  # Print all input atoms for easy copy-paste when debugging
+            input_atoms = ''.join(self.handler.get_input_program(key).get_programs() for key in (3, 0, 2)).strip()
+            log.debug(f"{self.name}'s input atoms:  {input_atoms}")
