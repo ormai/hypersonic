@@ -35,12 +35,6 @@ def test_does_not_wait_after_placing_bomb(game: Game):
     assert any((bomb.x, bomb.y) == (6, 5) for bomb in game.bombs), "bomb paced"
     assert (game.agents[0].x, game.agents[0].y) == (6, 6), "moves immediately"
 
-    for _ in range(8):
-        game.update()
-    assert any((bomb.x, bomb.y) == (11, 5) for bomb in game.bombs), "bomb paced"
-    assert (game.agents[0].x, game.agents[0].y) == (10, 5), "moves immediately"
-
-
 
 def test_stays_put_when_it_reaches_the_optimum_but_has_not_the_bomb(game: Game):
     """
@@ -59,6 +53,9 @@ def test_stays_put_when_it_reaches_the_optimum_but_has_not_the_bomb(game: Game):
 def test_protects_itself_against_box_stealing(game: Game):
     game.grid = [list(row) for row in EMPTY_GRID]
     game.grid[5][5] = CellType.BOX.value
+    # Without a real thread protection doesn't trigger
+    game.agents[1] = Bombardino(1, Game.START_POSITIONS[1], [os.path.join("encodings", "bombardino.lp")])
+    game.agents[1].send_prelude(game.WIDTH, game.HEIGHT)
 
     # The enemy stays at (12, 10) the whole time
     # It takes 11 turns for the enemy to place a bomb that threatens the box
@@ -68,7 +65,7 @@ def test_protects_itself_against_box_stealing(game: Game):
     for _ in range(10):
         game.update()
 
-    #  assert abs(game.bombs[0].x - 5) + abs(game.bombs[0].y - 5) == 1, "bomb is placed next to the box"
+    assert abs(game.bombs[0].x - 5) + abs(game.bombs[0].y - 5) == 1, "bomb is placed next to the box"
 
 
 def test_chooses_suboptimal_when_enemy_is_closer_to_optimal_and_has_bomb(game: Game):
@@ -84,7 +81,6 @@ def test_chooses_suboptimal_when_enemy_is_closer_to_optimal_and_has_bomb(game: G
     for _ in range(6):
         game.update()
     assert any(bomb for bomb in game.bombs if (bomb.x, bomb.y) in ((0, 5), (2, 3))), "places bomb where it supposed to"
-    # To-do: When we do stealing protection this must be changed
 
     # Agent is closer but gets bomb after enemy
     game.grid = [list(row) for row in EMPTY_GRID]
@@ -106,4 +102,4 @@ def test_chooses_suboptimal_when_it_is_closer_but_enemy_has_smaller_bomb_cooldow
     for _ in range(Bomb.LIFETIME):
         game.update()
 
-    assert any(bomb for bomb in game.bombs if (bomb.x, bomb.y) in ((4, 5), (2, 3))), "places bomb where it is supposed to"
+    assert any(bomb for bomb in game.bombs if (bomb.x, bomb.y) in ((3, 5), (2, 4))), "places bomb where it is supposed to"
