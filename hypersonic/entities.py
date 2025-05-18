@@ -442,7 +442,7 @@ class AspAgent(Agent):
                         return f"BOMB {atom.x} {atom.y}"
         except IndexError:
             ...
-        log.warning(f"{self.name} provided an empty answer set")
+        log.debug(f"{self.name} provided an empty answer set")
         return ""
 
     def __timeout(self):
