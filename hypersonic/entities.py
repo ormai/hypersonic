@@ -387,7 +387,6 @@ class AspAgent(Agent):
             [f"player({a.id},{a.x},{a.y},{a.bombs_left})." for a in agents] +
             [f"bomb({b.owner_id},{b.x},{b.y},{b.timer})." for b in bombs]
         )
-        log.info(f"Serialized turn state: {out}")
         return out
 
     @override
@@ -416,13 +415,9 @@ class AspAgent(Agent):
     def receive(self, turn: int) -> str:
         timer = Timer(Agent.TURN_TIMEOUT_S if turn > 0 else Agent.INITIAL_TIMEOUT_S, self.__timeout)
         timer.start()
-        if __debug__:
-            start = time()
         with self.lock:
             while self.is_running and not self.disqualified:
                 self.run_condition.wait()
-        if __debug__:
-            log.debug(f"{self.name} blocked for {(time() - start) * 1000:.2f}ms")
         timer.cancel()
         
 
