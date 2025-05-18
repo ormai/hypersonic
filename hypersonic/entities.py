@@ -1,5 +1,6 @@
 import os
 import sys
+from time import time
 from queue import Queue, Empty
 from subprocess import Popen, PIPE, TimeoutExpired
 from select import select
@@ -364,7 +365,11 @@ class AspAgent(Agent):
                 while not self.is_running:
                     self.run_condition.wait()
 
+            if __debug__:
+                start = time()
             self.answer_sets = self.handler.start_sync()
+            if __debug__:
+                log.debug(f"{self.name} blocked for {(time() - start) * 1000:.2f}ms") # type: ignore [possibly-unbound]
 
             with self.lock:
                 self.is_running = False
@@ -390,8 +395,8 @@ class AspAgent(Agent):
 
         prelude = ASPInputProgram()
         prelude.add_program(
-            f"gridSize({width},{height}). myId({self.id}). "
-            + f"cell(0..{width - 1},0..{height - 1}). bombRange(3).")
+            f"gridSize({width},{height}).myId({self.id})."
+            + f"cell(0..{width - 1},0..{height - 1}).bombRange(3).")
         self.handler.add_program(prelude)  # key = 2
 
     @override
@@ -423,16 +428,19 @@ class AspAgent(Agent):
             log.error(err + "\n" + asp_program)
             return ""
 
-        # Cfr. handler options. Gives only the optimum and can either contain
+        # See handler options. Gives only the optimum and can either contain
         # placeBomb/2 or move/2. If contains neither it's invalid.
 
-        if self.answer_sets is not None:
-            for atom in self.answer_sets.get_answer_sets()[0].get_atoms():
-                if isinstance(atom, Move):
-                    return f"MOVE {atom.x} {atom.y}"
-                else:
-                    return f"BOMB {atom.x} {atom.y}"
-            log.debug(f"{self.name} provided an empty answer set")
+        try:
+            if self.answer_sets is not None:
+                for atom in self.answer_sets.get_answer_sets()[0].get_atoms():
+                    if isinstance(atom, Move):
+                        return f"MOVE {atom.x} {atom.y}"
+                    else:
+                        return f"BOMB {atom.x} {atom.y}"
+        except IndexError:
+            ...
+        log.warning(f"{self.name} provided an empty answer set")
         return ""
 
     def __timeout(self):

@@ -1,4 +1,4 @@
-from random import choice
+from random import randint
 from collections import deque, defaultdict
 
 from .entities import Agent, Bomb, CellType
@@ -39,7 +39,9 @@ class Game:
         self.bombs: list[Bomb] = []
         self.agents = agents
         self.explosions: set[tuple[int, int]] = set()
-        self.grid = [list(row) for row in choice(LAYOUTS)]
+        layout_index = randint(0, len(LAYOUTS) - 1)
+        log.debug(f"Layout: {layout_index + 1}/{len(LAYOUTS)}")
+        self.grid = [list(row) for row in LAYOUTS[layout_index]]
         self.boxes_left = self.count_boxes_left()
 
         for agent in self.agents:
@@ -174,7 +176,7 @@ class Game:
                 if not Game.in_bounds(x, y):
                     raise ValueError(f"{agent.name}, out of bounds coordinates ({x}, {y})")
                 if cmd == "BOMB":
-                    # bomb placement and movement happen in the same turn
+                    # Bomb placement and movement happen in the same turn
                     if agent.bombs_left > 0:
                         if not any(b.x == agent.x and b.y == agent.y and b.timer < Bomb.LIFETIME for b in self.bombs):
                             self.bombs.append(Bomb(agent.id, agent.x, agent.y))
@@ -184,7 +186,7 @@ class Game:
                             log.warning(f"{agent.name} tried to place a bomb " +
                                         f"at ({x}, {y}), but there is one there already")
                     else:
-                        log.info(f"{agent.name} wants to place a bomb at ({x}, {y}) but cannot")
+                        log.info(f"{agent.name} wants to place a bomb at ({agent.x}, {agent.y}) but cannot")
                 elif cmd != "MOVE":
                     raise ValueError("Invalid command")
                 self.move(agent, x, y)
@@ -198,7 +200,7 @@ class Game:
         if agent.x == x and agent.y == y:
             agent.state = Agent.State.IDLE
             log.info(f"{agent.name} stays at ({x}, {y})")
-            return  # otherwise it loops between two neighboring cells
+            return  # Otherwise it loops between two neighboring cells
 
         # > Using the MOVE command followed by grid coordinates will make the
         # > player attempt to move one cell closer to those coordinates. The
@@ -207,6 +209,7 @@ class Game:
         # > to get to, the player will instead target the valid cell closest to
         # > the given coordinates.
 
+        log.debug(f"{agent.name}'s destination is ({x}, {y})")
         if not self.walkable(x, y):
             log.debug(f"destination not walkable ({x}, {y})")
             # We only look for the four adjacent cells to the destination --and

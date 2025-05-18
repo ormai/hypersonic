@@ -168,7 +168,7 @@ class Display:
 
         if not self.game.running:
             if self.end_game_info is None:
-                # do it one time when the game finished
+                # Do it one time when the game finished
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                 self.end_game_info = ("Draw" if len(winners := self.game.get_winners()) > 1 else
                                       f"{winners[0].name} wins" if len(winners) == 1 else "No winner")
@@ -270,7 +270,9 @@ class Display:
                     pos[1] - self.lens_flares[bomb.owner_id].get_height() // 2 - 22 * factor))
 
             if __debug__:
+                text = self.font.render(str(bomb.timer), True, (255, 127, 0), Display.TEXT_BACKGROUND)
                 pygame.draw.rect(self.screen, Display.MAGENTA, rect, 1)
+                self.screen.blit(text, (pos[0] - text.get_width() // 2, pos[1] - text.get_height() // 2))
 
     def draw_explosions(self):
         if not self.game.paused:
