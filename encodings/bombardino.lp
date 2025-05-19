@@ -25,7 +25,7 @@
 
 % # Structure of this program
 % This program follows the guess-check-optimize paradign. First, all possible
-% outcomes are generated (guessed), then outcoms that violate the game
+% outcomes are generated (guessed), then outcomes that violate the game
 % specification are truncated (check). Finally, the best of the remaining,
 % valid, outcomes is choosen via optimization. [1]
 
@@ -169,13 +169,13 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
 
 % We must strive to steal 🙂
 
-steal(X, Y) :- enemy(Enemy), bomb(Enemy, BombX, BombY, Timer), box(BoxX, BoxY),
+steal(X, Y) :- myId(Me), player(Enemy, _, _, _), Me != Enemy,
+   bomb(Enemy, BombX, BombY, Timer), box(BoxX, BoxY),
    &abs(BombX - BoxX; DxBombBox), &abs(BombY - BoxY; DyBombBox),
    inLine(BombX, BombY, BoxX, BoxY), DxBombBox + DyBombBox = 2,
    X = (BombX + BoxX) / 2, Y = (BombY + BoxY) / 2,
    currentPosition(Px, Py), &abs(Px - X; Dx), &abs(Py - Y; Dy),
-   myId(Me), bombCooldown(Me, Cooldown), Cooldown <= Timer,
-   Dx + Dy <= Timer.
+   bombCooldown(Me, Cooldown), Dx + Dy < Timer, Cooldown < Timer.
 
 :~ steal(X, Y), currentPosition(X, Y), not bombPlaced. [1@6]
 :~ steal(X, Y), currentPosition(Px, Py), Px != X, not move(X, Y). [1@6]

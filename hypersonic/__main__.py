@@ -8,14 +8,14 @@ from .entities import Bombardino, AspAgent
 
 
 def main():
-    model_update_rate = 2  # turns per second
+    model_update_rate = 3  # turns per second
     model_update_interval = 1 / model_update_rate
     model_accumulator = 0.0
     last_time = time()
 
     game = Game([
         Bombardino(0, Game.START_POSITIONS[0], [os.path.join("encodings", "bombardino.lp")], "Bombardino"),
-        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random")
+        Bombardino(1, Game.START_POSITIONS[1], [os.path.join("encodings", "crappier_bombardino_2")], "crappier_bombardino_2"),
     ])
     display = Display(game)
     clock = pygame.time.Clock()
