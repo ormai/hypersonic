@@ -8,16 +8,57 @@ from .model import Game
 from .entities import ExecutableAgent, AspAgent
 
 
+active_agents = ['randomASP', 'randomPY']
+
+if len(active_agents) > 2:
+    raise ValueError(f"Too many agents. Maximum allowed: 2")
+
+AGENTS = {
+    'iPuponi': AspAgent(agent_id=active_agents.index('iPuponi')
+                            if 'iPuponi' in active_agents else 0,
+                            start_cell=Game.START_POSITIONS[active_agents.index('iPuponi')]
+                            if 'iPuponi' in active_agents else (0, 0),
+                            asp_programs=[],
+                            name="iPuponi"),
+    'nASPi': AspAgent(agent_id=active_agents.index('nASPi')
+                        if 'nASPi' in active_agents else 0,
+                        start_cell=Game.START_POSITIONS[active_agents.index('nASPi')]
+                        if 'nASPi' in active_agents else (0, 0),
+                        asp_programs=[],
+                        name="nASPi"),
+    'leo_sal': AspAgent(agent_id=active_agents.index('leo_sal')
+                            if 'leo_sal' in active_agents else 0,
+                            start_cell=Game.START_POSITIONS[active_agents.index('leo_sal')]
+                            if 'leo_sal' in active_agents else (0, 0),
+                            asp_programs=[],
+                            name="leo_sal"),
+    'gameStoppers': AspAgent(agent_id=active_agents.index('gameStoppers')
+                                if 'gameStoppers' in active_agents else 0,
+                                start_cell=Game.START_POSITIONS[active_agents.index('gameStoppers')]
+                                if 'gameStoppers' in active_agents else (0, 0),
+                                asp_programs=[],
+                                name="gameStoppers"),
+    'randomASP': AspAgent(agent_id=active_agents.index('randomASP')
+                            if 'randomASP' in active_agents else 0,
+                            start_cell=Game.START_POSITIONS[active_agents.index('randomASP')]
+                            if 'randomASP' in active_agents else (0, 0),
+                            asp_programs=[os.path.join("encodings", "random.lp")],
+                            name="randomASP"),
+    'randomPY': ExecutableAgent(agent_id=active_agents.index('randomPY')
+                                    if 'randomPY' in active_agents else 0,
+                                    start_cell=Game.START_POSITIONS[active_agents.index('randomPY')]
+                                    if 'randomPY' in active_agents else (0, 0),
+                                    cmd=[sys.executable, os.path.join("encodings", "random_agent.py")],
+                                    name="randomPY")
+}
+
 def main():
     model_update_rate = 2  # turns per second
     model_update_interval = 1 / model_update_rate
     model_accumulator = 0.0
     last_time = time()
 
-    game = Game([
-        ExecutableAgent(0, Game.START_POSITIONS[0], [sys.executable, os.path.join("encodings", "random_agent.py")], "Random"),
-        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random")
-    ])
+    game = Game([AGENTS[agent] for agent in active_agents])
     display = Display(game)
     clock = pygame.time.Clock()
 
