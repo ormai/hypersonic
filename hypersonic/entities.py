@@ -403,9 +403,7 @@ class AspAgent(Agent):
 
     @override
     def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
-        out = self._serialize_turn_state(agents, bombs, grid)
-        self.turn_state_program.set_programs(out)
-        log.info(out)
+        self.turn_state_program.set_programs(self._serialize_turn_state(agents, bombs, grid))
 
         with self.lock:
             self.is_running = True
@@ -419,7 +417,6 @@ class AspAgent(Agent):
             while self.is_running and not self.disqualified:
                 self.run_condition.wait()
         timer.cancel()
-        
 
         if self.disqualified:
             log.warning(f"{self.name} is disqualified because it did not respond in time")
@@ -445,7 +442,7 @@ class AspAgent(Agent):
                         return f"BOMB {atom.x} {atom.y}"
         except IndexError:
             ...
-        log.debug(f"{self.name} provided an empty answer set")
+        log.warning(f"{self.name} provided an empty answer set")
         return ""
 
     def __timeout(self):
@@ -474,7 +471,6 @@ class Bombardino(AspAgent):
             return action
         _, x, y = action.split()
         self.previous_turn_output = f"prevDestination({x},{y})."
-        log.info(self.previous_turn_output)
         return action
 
     @override
