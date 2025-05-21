@@ -25,7 +25,7 @@
 
 % # Structure of this program
 % This program follows the guess-check-optimize paradign. First, all possible
-% outcomes are generated (guessed), then outcoms that violate the game
+% outcomes are generated (guessed), then outcomes that violate the game
 % specification are truncated (check). Finally, the best of the remaining,
 % valid, outcomes is choosen via optimization. [1]
 
@@ -72,8 +72,17 @@ bombPlaced :- placeBomb(_, _).
    placeBomb(X, Y).
 :- destinationReached, move(_, _). % Wandering aimlessly is forbidden
 
+%:- currentPosition(X, Y), boxesHit(X, Y, 0), move(X, Y). ??
 
 % # OPTIMIZE
+
+% Weights:
+% 6 steal enemy box
+% 5 place bomb where you are if it gets you free points at zero cost
+% 4 avoid targates of distance 2 from a box if the enemy can steal it
+% 3 avoid positions controlled by the enemy
+% 2 maximize boxes hit with one bomb
+% 1 minimize target distance
 
 % cell(Px, Py) and cell(Qx, Qy) are either on the same row or the same column
 inLine(Px, Py, Qx, Qy) :- cell(Px, Py), cell(Qx, Qy), Px = Qx.
@@ -113,7 +122,7 @@ boxesHit(X, Y, N) :- cell(X, Y), not box(X, Y),
 boxesLeft(Count) :- Count = #count { X, Y : box(X, Y),
                                             not threatenedBox(X, Y) }.
 
-enemy(Id) :- myId(Me), player(Id, _, _, _), Me != Id.
+%enemy(Id) :- myId(Me), player(Id, _, _, _), Me != Id.
 
 bombCooldown(Player, Cooldown) :- not hasBomb(Player),
                                   bomb(Player, _, _, Cooldown).
@@ -139,6 +148,7 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
 % steal the box, given distance and cooldown. If all conditions are met
 % we discourage placing a bomb at a distance of 2.
 
+
 :~ myId(Me), player(Me, Px, Py, _), player(Enemy, Ex, Ey, _), Me != Enemy,
    box(Bx, By), destination(X, Y), boxesHit(X, Y, 1),
    &abs(Bx - X; DxBombBox), &abs(By - Y; DyBombBox),
@@ -147,16 +157,25 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
    &abs(Bx - Px; DxAgentBomb), &abs(By - Py; DyAgentBomb),
    &abs(Bx - Ex; DxEnemyBomb), &abs(By - Ey; DyEnemyBomb),
    bombCooldown(Me, MyCooldown), bombCooldown(Enemy, EnemyCooldown),
-   &abs(DxAgentBomb + DyAgentBomb - MyCooldown; MyWait),
-   &abs(DxEnemyBomb + DyEnemyBomb - EnemyCooldown; EnemyWait),
+
+   % max(a, b) = floor((a + b + abs(a - b)) / 2)
+   MyDistance = DxAgentBomb + DyAgentBomb, &abs(MyDistance - EnemyCooldown; MyDiff),
+   EnemyDistance = DxEnemyBomb + DyEnemyBomb, &abs(EnemyDistance - EnemyCooldown; EnemyDiff),
+   MyWait = (MyDistance + MyCooldown + MyDiff) / 2,
+   EnemyWait = (EnemyDistance + EnemyCooldown + EnemyDiff) / 2,
+
+   boxesLeft(BoxesLeft), BoxesLeft > 1,
+
    bombLifetime(BombLifetime),
-   MyWait + BombLifetime > EnemyWait. % Enemy could make it
+   MyWait + BombLifetime >= EnemyWait. % Enemy could make it
    [1@4]
 
 
 % If we are on a cell, which is not the target, on which a bomb would hit at
 % least a box, and we don't get in a disadvantage situation with respect to
 % the enemy, then we should place a bomb here.
+% Given our greedy strategy, the size of the map and how close boxes are, this
+% rule is never actually istantiated.
 
 :~ currentPosition(X, Y), destination(DstX, DstY), myId(Me), hasBomb(Me),
    boxesHit(X, Y, BoxesHit), BoxesHit > 0, bombLifetime(BombLifetime),
@@ -167,15 +186,16 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
    [1@5]
 
 
-% We must strive to steal 🙂
+% Box stealing takes a point that would otherwise go to the enemy and gives it
+% to us. It has the highest priority.
 
-steal(X, Y) :- enemy(Enemy), bomb(Enemy, BombX, BombY, Timer), box(BoxX, BoxY),
+steal(X, Y) :- myId(Me), player(Enemy, _, _, _), Me != Enemy,
+   bomb(Enemy, BombX, BombY, Timer), box(BoxX, BoxY),
    &abs(BombX - BoxX; DxBombBox), &abs(BombY - BoxY; DyBombBox),
    inLine(BombX, BombY, BoxX, BoxY), DxBombBox + DyBombBox = 2,
    X = (BombX + BoxX) / 2, Y = (BombY + BoxY) / 2,
    currentPosition(Px, Py), &abs(Px - X; Dx), &abs(Py - Y; Dy),
-   myId(Me), bombCooldown(Me, Cooldown), Cooldown <= Timer,
-   Dx + Dy <= Timer.
+   bombCooldown(Me, Cooldown), Dx + Dy < Timer - 1, Cooldown < Timer - 1.
 
 :~ steal(X, Y), currentPosition(X, Y), not bombPlaced. [1@6]
 :~ steal(X, Y), currentPosition(Px, Py), Px != X, not move(X, Y). [1@6]
