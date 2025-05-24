@@ -470,7 +470,7 @@ class Bombardino(AspAgent):
         if action == "":
             return action
         _, x, y = action.split()
-        self.previous_turn_output = f"prevDestination({x},{y})."
+        self.previous_turn_output = f"prevDestination({x},{y}).score({self.id}, {self.boxes_blown_up})."
         return action
 
     @override

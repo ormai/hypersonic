@@ -96,6 +96,7 @@ bombPlaced :- placeBomb(_, _).
 % /~~~~~~~~~~~~ OPTIMIZE ~~~~~~~~~~~~\
 
 % # Weights:
+% 6 victory wait
 % 5 steal enemy box
 % 4 avoid cells of distance 2 from a box if the enemy can steal it
 % 3 avoid positions controlled by the enemy
@@ -227,6 +228,17 @@ steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
 :~ steal(X, Y), currentPosition(Px, Py), Px != X, not move(X, Y). [1@5]
 :~ steal(X, Y), currentPosition(Px, Py), Py != Y, not move(X, Y). [1@5]
 
+
+% If we've matematically win we should go in the middle and wait.
+remainingBoxes(N) :- #count { X, Y : box(X, Y) } = N.
+middle(X, Y) :- gridSize(Width, Height),
+                X = Width / 2, Y = Height / 2.
+won :- myId(Me), score(Me, Score),
+        enemy(Enemy), score(Enemy, EnemyScore),
+        remainingBoxes(N),
+        Score > EnemyScore + N.
+
+:~ won, middle(X, Y), not move(X, Y). [1@6]
 
 % [1]: https://i-dlv.readthedocs.io/en/latest/Basic/basic.html#the-gco
 % [2]: https://en.wikipedia.org/wiki/Taxicab_geometry
