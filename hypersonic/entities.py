@@ -470,14 +470,17 @@ class Bombardino(AspAgent):
         if action == "":
             return action
         _, x, y = action.split()
-        self.previous_turn_output = f"prevDestination({x},{y}).score({self.id}, {self.boxes_blown_up})."
+        self.previous_turn_output = f"prevDestination({x},{y})."
         return action
 
     @override
     def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
         self.custom_input.set_programs(self.previous_turn_output)
         super().send_turn_state(agents, bombs, grid)
-
+        
+        for agent in agents:
+            self.custom_input.add_program(f"score({agent.id}, {agent.boxes_blown_up}).")
+        
         if __debug__:  # Print all input atoms for easy copy-paste when debugging
             input_atoms = ''.join(self.handler.get_input_program(key).get_programs() for key in (3, 0, 2)).strip()
             log.debug(f"{self.name}'s input atoms:  {input_atoms}")
