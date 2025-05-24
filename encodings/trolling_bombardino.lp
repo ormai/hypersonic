@@ -62,6 +62,7 @@ hasBomb(Player) :- player(Player, _, _, _), bomb(Player, _, _, 1).
 
 enemy(Id) :- myId(Me), player(Id, _, _, _), Me != Id.
 
+trolling(0). % just for fun, off by default.
 
 % /~~~~~~~~~~~~ GUESS ~~~~~~~~~~~~\
 % 13*11*2 = 286 initial answer sets.
@@ -96,7 +97,7 @@ bombPlaced :- placeBomb(_, _).
 % /~~~~~~~~~~~~ OPTIMIZE ~~~~~~~~~~~~\
 
 % # Weights:
-% 6 victory wait
+% 6 victory visit (middle) (off by default)
 % 5 steal enemy box
 % 4 avoid cells of distance 2 from a box if the enemy can steal it
 % 3 avoid positions controlled by the enemy
@@ -124,12 +125,12 @@ boxesHit(X, Y, N) :- cell(X, Y), not box(X, Y),
                                           bombAtCellHitsCell(X, Y, BoxX, BoxY),
                                           not threatenedBox(BoxX, BoxY) }.
 
-% Maximize number of boxes hit
-:~ destination(X, Y), boxesHit(X, Y, N), maxHittableBoxes(Max). [Max - N@2]
-
 % Minimize target cell distance
 :~ currentPosition(SrcX, SrcY), destination(DstX, DstY),
    &abs(SrcX - DstX; Dx), &abs(SrcY - DstY; Dy). [Dx + Dy@1]
+
+% Maximize number of boxes hit
+:~ destination(X, Y), boxesHit(X, Y, N), maxHittableBoxes(Max). [Max - N@2]
 
 % (Note) The following rules are big, the possibility of factorizing out common
 %        literals into their own rules was considered but dismissed. This way
@@ -229,27 +230,29 @@ steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
 :~ steal(X, Y), currentPosition(Px, Py), Py != Y, not move(X, Y). [1@5]
 
 
-% If we've matematically win we should go in the middle and wait.
+% If we've matematically win we should visit the middle...
 remainingBoxes(N) :- #count { X, Y : box(X, Y) } = N.
-middle(X, Y) :- gridSize(Width, Height),
+middle(X,Y) :- gridSize(Width, Height),
                 X = Width / 2, Y = Height / 2.
-won :- myId(Me), score(Me, Score),
+won :- trolling(X), X == 1, myId(Me), score(Me, Score),
         enemy(Enemy), score(Enemy, EnemyScore),
         remainingBoxes(N),
         Score > EnemyScore + N.
 
-:~ won, middle(X, Y), not move(X, Y). [1@6]
+:~ won, destination(X, Y), not middle(X, Y). [1@6]
 
+
+% /~~~~~~~~~~~~ Resources ~~~~~~~~~~~~\
 % [1]: https://i-dlv.readthedocs.io/en/latest/Basic/basic.html#the-gco
 % [2]: https://en.wikipedia.org/wiki/Taxicab_geometry
 % [3]: https://en.wikipedia.org/wiki/Voronoi_diagram
 
-% The name `Bombardino` comes from the italian
-% version of Brawl Stars' eponymous character.
-
 
 % /~~~~~~~~~~~~ Notes and fun facts ~~~~~~~~~~~~\
+% The trolling aspetr is disabled by default, turn it on with trolling(1).
 % - prevDestination is used only to avoid wasting turns.
 % - Each row is no longer than 80 characters.
 % - The program is long because I like ruels to use more rows instead of being
 % compact for me at least it helps it's readability.
+% The name `Bombardino` comes from the italian
+% version of Brawl Stars' eponymous character.
