@@ -248,10 +248,11 @@ won :- trolling(1), myId(Me), score(Me, Score),
 
 
 % /~~~~~~~~~~~~ Notes and fun facts ~~~~~~~~~~~~\
-% The trolling aspect is disabled by default, turn it on with trolling(1).
+% - The trolling aspect is disabled by default, turn it on with trolling(1).
 % - prevDestination is used only to avoid wasting turns.
 % - Each row is no longer than 80 characters.
 % - The program is long because I like rules to use more rows instead of being
 %   compact for me at least it helps its readability.
 % - The name `Bombardino` comes from the Italian version of Brawl Stars'
 %   eponymous character.
+
