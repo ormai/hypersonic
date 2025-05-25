@@ -4,7 +4,7 @@ import os
 
 from .display import Display
 from .model import Game
-from .entities import Bombardino, AspAgent
+from .entities import AspAgent, GameStopppers
 
 
 def main():
@@ -14,8 +14,8 @@ def main():
     last_time = time()
 
     game = Game([
-        Bombardino(0, Game.START_POSITIONS[0], [os.path.join("encodings", "bombardino.lp")], "Bombardino"),
-        Bombardino(1, Game.START_POSITIONS[1], [os.path.join("encodings", "crappier_bombardino_2")], "crappier_bombardino_2"),
+        GameStopppers(0, Game.START_POSITIONS[0]),
+        AspAgent(1, Game.START_POSITIONS[1], [os.path.join("encodings", "random.lp")], "Random"),
     ])
     display = Display(game)
     clock = pygame.time.Clock()
