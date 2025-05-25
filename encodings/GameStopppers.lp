@@ -18,7 +18,7 @@
 % - player(ID, X, Y, BombsLeft).    <- BombsLeft is either 0 or 1
 % - bomb(OwnerID, X, Y, TurnsLeft). <- TurnsLeft is the detonation timer
 % - prevDestination(X, Y).          <- output of the previous turn
-% - score(ID, Score).               <- currenct score for each player
+% - score(ID, Score).               <- current score for each player
 % ## Output
 % The program produces exactly one of
 % - placeBomb(X, Y). <- places a bomb at the current position and
@@ -27,42 +27,43 @@
 
 
 % /~~~~~~~~~~~~ Structure of this program ~~~~~~~~~~~~\
-% This program follows the guess-check-optimize paradign. First, all possible
+% This program follows the guess-check-optimize paradigm. First, all possible
 % outcomes are generated (guessed); then outcomes that violate the game
 % specification are pruned (check). Finally, the best of the remaining — valid
-% — outcomes is choosen through optimization. [1]
+% — outcomes is chosen through optimization. [1]
 
 
 % /~~~~~~~~~~~~ THE PLAN ~~~~~~~~~~~~\
 % We search for the max number of boxes we can hit with one bomb.
 % Then we "rank" them based on the distance from our position.
-% In a perfect world this would be the end but the are in a competitive
-% environment, so we need to keep an eye on position where the enemy could
+% In a perfect world this would be the end but we the agent's environment is a
+% competitive one, so we need to keep an eye on positions where the enemy could
 % arrive before us.
-% Also since we have an enemy we can try to get some points by stealing boxes
-% from the enemy.
-% Stealing also resets our bomb cooldown, so we can take advantage of their
-% reset to palce more bombs.
-% But since the enemy could also setal from us we need to try and protect
-% ourself, at lest in the end-game were few point could make the difference.
+% Also since we have an enemy we can try to get some points by stealing their
+% boxes. Stealing resets our bomb cooldown, so we can take advantage of their
+% bombs to place more bombs.
+% But since the enemy could also steal from us we need to try and protect
+% ourselves, at least in the end-game where few points could make the
+% difference.
 
 
 % /~~~~~~~~~~~~ FACTS ~~~~~~~~~~~~\
-% A few initial facts that are useful to our agent
+% Initial facts that are useful to our agent
 maxHittableBoxes(4). % Max number of boxes that can be blown up with one bomb
 bombLifetime(8). % How many turns a bomb lasts
 currentPosition(X, Y) :- myId(Id), player(Id, X, Y, _).
 
 % Between one turn and the next, if we are placing a bomb back-to-back
 % BombsLeft will remain zero. At the beginning of a turn, if a bomb has a timer
-% value of 1 it will explode in this turn and the agent will be able to place
-% the bomb again in the same turn. To minimize turns wasted we should aim
+% value of 1 the bomb will explode in this turn and the agent will be able to
+% place the bomb again in the same turn. To minimize turns wasted we should aim
 % to do exactly that.
 hasBomb(Player) :- player(Player, _, _, 1).
 hasBomb(Player) :- player(Player, _, _, _), bomb(Player, _, _, 1).
 
 enemy(Id) :- myId(Me), player(Id, _, _, _), Me != Id.
 
+trolling(0). % For fun, off by default.
 
 % /~~~~~~~~~~~~ GUESS ~~~~~~~~~~~~\
 % 13*11*2 = 286 initial answer sets.
@@ -77,11 +78,10 @@ destination(X, Y) :- placeBomb(X, Y).
 :- placeBomb(X, Y), box(X, Y).
 :- destination(X, Y), bomb(_, X, Y, _). % It's all going to blow up anyway
 
-% Place the bomb if and only if we reached our target desination
 destinationReached :- prevDestination(X, Y), currentPosition(X, Y).
 bombPlaced :- placeBomb(_, _).
 
-% We do not want to place bomb in the wrong posisition or risk moving wrongly
+% Place the bomb if and only if we reached our target desination
 :- destinationReached, not bombPlaced.
 :- not destinationReached, bombPlaced.
 
@@ -97,6 +97,7 @@ bombPlaced :- placeBomb(_, _).
 % /~~~~~~~~~~~~ OPTIMIZE ~~~~~~~~~~~~\
 
 % # Weights:
+% 6 victory visit (middle) (off by default)
 % 5 steal enemy box
 % 4 avoid cells of distance 2 from a box if the enemy can steal it
 % 3 avoid positions controlled by the enemy
@@ -124,14 +125,14 @@ boxesHit(X, Y, N) :- cell(X, Y), not box(X, Y),
                                           bombAtCellHitsCell(X, Y, BoxX, BoxY),
                                           not threatenedBox(BoxX, BoxY) }.
 
-% Maximize number of boxes hit
-:~ destination(X, Y), boxesHit(X, Y, N), maxHittableBoxes(Max). [Max - N@2]
-
 % Minimize target cell distance
 :~ currentPosition(SrcX, SrcY), destination(DstX, DstY),
    &abs(SrcX - DstX; Dx), &abs(SrcY - DstY; Dy). [Dx + Dy@1]
 
-% (Note) The following rules are big, the possibility of factorizing out common
+% Maximize number of boxes hit
+:~ destination(X, Y), boxesHit(X, Y, N), maxHittableBoxes(Max). [Max - N@2]
+
+% (Note) The following rules are big, the possibility of factoring out common
 %        literals into their own rules was considered but dismissed. This way
 %        we minimize the overall number of rule instantiations.
 
@@ -204,19 +205,18 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
 
 % Box stealing takes a point that would otherwise go to the enemy and gives it
 % to us and it gives us a fast reset of the bomb.
-% Assigning the highest priority to stealing might not be always the best
-% choice, but it is possible only under very specific conditions, so we can
-% afford to give it the highest priority.
+% Giving the highest priority to stealing might not be always the best choice,
+% but stealing is possible only under very specific conditions.
 % If the conditions were too loose we could result in an agent that only steals
 % and that is most likely not the best strategy...
-steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
+steal(X, Y) :- myId(Me), enemy(Enemy), bomb(Enemy, BombX, BombY, Timer),
                box(BoxX, BoxY), inLine(BombX, BombY, BoxX, BoxY),
                &abs(BombX - BoxX; DxBombBox),
                &abs(BombY - BoxY; DyBombBox),
-               DxBombBox + DyBombBox = 2, % There's space for our bomb
+               DxBombBox + DyBombBox = 2, % There is space for our bomb
                X = (BombX + BoxX) / 2, Y = (BombY + BoxY) / 2, % midpoint
 
-               % We can reach it bofere the enemy bomb explodes
+               % We can reach it before the enemy bomb explodes
                currentPosition(Px, Py), &abs(Px - X; Dx), &abs(Py - Y; Dy),
                Dx + Dy < Timer - 1,
 
@@ -229,15 +229,29 @@ steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
 :~ steal(X, Y), currentPosition(Px, Py), Py != Y, not move(X, Y). [1@5]
 
 
+% If we have mathematically won we should visit the middle
+remainingBoxes(N) :- #count { X, Y : box(X, Y) } = N.
+middle(X,Y) :- gridSize(Width, Height),
+                X = Width / 2, Y = Height / 2.
+won :- trolling(1), myId(Me), score(Me, Score),
+       enemy(Enemy), score(Enemy, EnemyScore),
+       remainingBoxes(N),
+       Score > EnemyScore + N.
+
+:~ won, destination(X, Y), not middle(X, Y). [1@6]
+
+
+% /~~~~~~~~~~~~ Resources ~~~~~~~~~~~~\
 % [1]: https://i-dlv.readthedocs.io/en/latest/Basic/basic.html#the-gco
 % [2]: https://en.wikipedia.org/wiki/Taxicab_geometry
 % [3]: https://en.wikipedia.org/wiki/Voronoi_diagram
 
 
 % /~~~~~~~~~~~~ Notes and fun facts ~~~~~~~~~~~~\
-% - The name `Bombardino` comes from the italian version of Brawl Stars'
-%   eponymous character.
+% The trolling aspect is disabled by default, turn it on with trolling(1).
 % - prevDestination is used only to avoid wasting turns.
 % - Each row is no longer than 80 characters.
-% - The program is long because I like ruels to use more rows instead of being
-%   compact for me at least it helps it's readability.
+% - The program is long because I like rules to use more rows instead of being
+%   compact for me at least it helps its readability.
+% - The name `Bombardino` comes from the Italian version of Brawl Stars'
+%   eponymous character.
