@@ -1,16 +1,17 @@
 from time import time
 import pygame
 import os
+import sys
 
 from .display import Display
 from .model import Game
-from .entities import AspAgent, GameStopppers
+from .entities import AspAgent, GameStopppers, ExecutableAgent
 
 
-active_agents = ['randomASP', 'randomPY']
+active_agents = ['randomASP', 'GameStopppers']
 
 if len(active_agents) > 2:
-    raise ValueError(f"Too many agents. Maximum allowed: 2")
+    raise ValueError("Too many agents. Maximum allowed: 2")
 
 AGENTS = {
     'iPuponi': AspAgent(agent_id=active_agents.index('iPuponi')
@@ -31,12 +32,10 @@ AGENTS = {
                             if 'leo_sal' in active_agents else (0, 0),
                             asp_programs=[],
                             name="leo_sal"),
-    'gameStoppers': AspAgent(agent_id=active_agents.index('gameStoppers')
-                                if 'gameStoppers' in active_agents else 0,
-                                start_cell=Game.START_POSITIONS[active_agents.index('gameStoppers')]
-                                if 'gameStoppers' in active_agents else (0, 0),
-                                asp_programs=[],
-                                name="gameStoppers"),
+    'GameStopppers': GameStopppers(agent_id=active_agents.index('GameStopppers')
+                                if 'GameStopppers' in active_agents else 0,
+                                start_cell=Game.START_POSITIONS[active_agents.index('GameStopppers')]
+                                if 'GameStopppers' in active_agents else (0, 0)),
     'randomASP': AspAgent(agent_id=active_agents.index('randomASP')
                             if 'randomASP' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('randomASP')]
@@ -52,7 +51,7 @@ AGENTS = {
 }
 
 def main():
-    model_update_rate = 10  # turns per second
+    model_update_rate = 2  # turns per second
     model_update_interval = 1 / model_update_rate
     model_accumulator = 0.0
     last_time = time()
