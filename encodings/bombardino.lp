@@ -35,27 +35,28 @@
 
 % /~~~~~~~~~~~~ THE PLAN ~~~~~~~~~~~~\
 % We search for the max number of boxes we can hit with one bomb.
-% Then we "rank" them based on teh distance from our position.
-% In a perfect world this would be the end but we have an enemy, so we need to
-% keep an eye on position where the enemy could arrive before us.
+% Then we "rank" them based on the distance from our position.
+% In a perfect world this would be the end but the are in a competitive
+% environment, so we need to keep an eye on position where the enemy could
+% arrive before us.
 % Also since we have an enemy we can try to get some points by stealing boxes
 % from the enemy.
 % Stealing also resets our bomb cooldown, so we can take advantage of their
 % reset to palce more bombs.
-% But since teh enemy could also setal from us we neeto to be try and protect
+% But since the enemy could also setal from us we need to try and protect
 % ourself, at lest in the end-game were few point could make the difference.
 
 
 % /~~~~~~~~~~~~ FACTS ~~~~~~~~~~~~\
-% just a few initial facts that are useful to our agent
+% A few initial facts that are useful to our agent
 maxHittableBoxes(4). % Max number of boxes that can be blown up with one bomb
 bombLifetime(8). % How many turns a bomb lasts
 currentPosition(X, Y) :- myId(Id), player(Id, X, Y, _).
 
 % Between one turn and the next, if we are placing a bomb back-to-back
 % BombsLeft will remain zero. At the beginning of a turn, if a bomb has a timer
-% value of 1 the bomb will explode in this turn and the agent will be able to
-% place the bomb again in the same turn. To minimize turns wasted we should aim
+% value of 1 it will explode in this turn and the agent will be able to place
+% the bomb again in the same turn. To minimize turns wasted we should aim
 % to do exactly that.
 hasBomb(Player) :- player(Player, _, _, 1).
 hasBomb(Player) :- player(Player, _, _, _), bomb(Player, _, _, 1).
@@ -202,9 +203,9 @@ bombCooldown(Player, 0) :- player(Player, _, _, _), hasBomb(Player).
    [1@4]
 
 % Box stealing takes a point that would otherwise go to the enemy and gives it
-% to us and it gives us a fast reset of the bomb. It has the highest priority.
-% The highest priority to stealing might not be always the best choice, but
-% stealing is possible only under very specific conditions, so we can
+% to us and it gives us a fast reset of the bomb.
+% Assigning the highest priority to stealing might not be always the best
+% choice, but it is possible only under very specific conditions, so we can
 % afford to give it the highest priority.
 % If the conditions were too loose we could result in an agent that only steals
 % and that is most likely not the best strategy...
@@ -212,7 +213,7 @@ steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
                box(BoxX, BoxY), inLine(BombX, BombY, BoxX, BoxY),
                &abs(BombX - BoxX; DxBombBox),
                &abs(BombY - BoxY; DyBombBox),
-               DxBombBox + DyBombBox = 2, % Ther's space for our bomb
+               DxBombBox + DyBombBox = 2, % There's space for our bomb
                X = (BombX + BoxX) / 2, Y = (BombY + BoxY) / 2, % midpoint
 
                % We can reach it bofere the enemy bomb explodes
@@ -232,12 +233,11 @@ steal(X, Y) :- mmyId(Me), enemy(Eney), bomb(Enemy, BombX, BombY, Timer),
 % [2]: https://en.wikipedia.org/wiki/Taxicab_geometry
 % [3]: https://en.wikipedia.org/wiki/Voronoi_diagram
 
-% The name `Bombardino` comes from the italian
-% version of Brawl Stars' eponymous character.
-
 
 % /~~~~~~~~~~~~ Notes and fun facts ~~~~~~~~~~~~\
+% - The name `Bombardino` comes from the italian version of Brawl Stars'
+%   eponymous character.
 % - prevDestination is used only to avoid wasting turns.
 % - Each row is no longer than 80 characters.
 % - The program is long because I like ruels to use more rows instead of being
-% compact for me at least it helps it's readability.
+%   compact for me at least it helps it's readability.
