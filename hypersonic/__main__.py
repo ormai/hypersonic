@@ -5,7 +5,7 @@ import os
 
 from .display import Display
 from .model import Game
-from .entities import AspAgent, GameStopppers, ExecutableAgent
+from .entities import ExecutableAgent, AspAgent, nASPiAgent, GameStopppers
 
 
 active_agents = ['randomASP', 'randomPY']
@@ -21,12 +21,10 @@ AGENTS = {
                             if 'iPuponi' in active_agents else (0, 0),
                             asp_programs=[os.path.join("encodings", "iPuponi.lp")],
                             name="iPuponi"),
-    'nASPi': AspAgent(agent_id=active_agents.index('nASPi')
-                        if 'nASPi' in active_agents else 0,
-                        start_cell=Game.START_POSITIONS[active_agents.index('nASPi')]
-                        if 'nASPi' in active_agents else (0, 0),
-                        asp_programs=[],
-                        name="nASPi"),
+    'nASPi': nASPiAgent(agent_id=active_agents.index('nASPi')
+                            if 'nASPi' in active_agents else 0,
+                            start_cell=Game.START_POSITIONS[active_agents.index('nASPi')]
+                            if 'nASPi' in active_agents else (0, 0)),
     'leo_sal': AspAgent(agent_id=active_agents.index('leo_sal')
                             if 'leo_sal' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('leo_sal')]

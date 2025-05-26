@@ -449,6 +449,47 @@ class AspAgent(Agent):
             self.run_condition.notify()
 
 
+class nASPiAgent(AspAgent):
+    """
+    The NASPI team's implementation of an ASP-based agent for Hypersonic game.
+    This agent uses ASP encodings from the 'encodings/naspi' directory to make decisions.
+
+    The agent automatically loads and uses all ASP programs found in the naspi
+    encodings directory to determine its next action in the game.
+    """
+
+    def __init__(self, agent_id: int, start_cell: tuple[int, int]):
+        naspi_dir = os.path.join("encodings", "naspi")
+        asp_programs = [os.path.join(naspi_dir, filename) for filename in os.listdir(naspi_dir)]
+        super().__init__(agent_id, start_cell, asp_programs, "nASPiAgent")
+
+    @override
+    def _serialize_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]) -> str:
+        # added blownUpBoxes(ID,N) -> number of boxes blown up by an agent
+
+        return "".join(
+            [f"player({a.id},{a.x},{a.y},{a.bombs_left})." for a in agents] +
+            [f"box({x},{y})." for y in range(len(grid)) for x in range(len(grid[y]))
+             if grid[y][x] == CellType.BOX.value] +
+            [f"bomb({b.owner_id},{b.x},{b.y},{b.timer})." for b in bombs] +
+            [f"blownUpBoxes({agent.id},{agent.boxes_blown_up})." for agent in agents]
+        )
+
+    @override
+    def send_prelude(self, width: int, height: int):
+        #  The param2 is not useful for the current league, and will always be:
+        #     For players: explosion range of the player's bombs (= 3).
+        #     For bombs: explosion range of the bomb (= 3).
+        #                explosionRange(1..2) -> modelling explosion range with a fact.
+
+        prelude = ASPInputProgram()
+        prelude.add_program(
+            f"gridSize({width},{height}).myId({self.id})."
+            + f"cell(0..{width - 1},0..{height - 1}).bombRange(3).explosionRange(1..2).")
+        self.handler.add_program(prelude)
+
+        
+
 class GameStopppers(AspAgent):
     """
     Further specialization of the AspAgent specific to Bombardino. This class
