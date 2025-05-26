@@ -155,6 +155,25 @@ def test_both_players_place_a_bomb_in_the_same_position_but_different_turn(game:
     assert game.grid[1][3] == CellType.FLOOR.value, "The box is destroyed"
 
 
+def test_bomb_steals_box(game: Game):
+    # grid: .......
+    #       .0BB.0.
+    #       ...0...
+    # B: bomb, 0: box, .: floor
+    game.grid[1][1] = CellType.BOX.value
+    game.grid[2][3] = CellType.BOX.value
+    game.grid[1][5] = CellType.BOX.value
+    bomb1 = Bomb(0, 2, 1)
+    bomb2 = Bomb(1, 3, 1)
+    game.bombs = [bomb1,bomb2]
+    bomb1.timer = bomb2.timer = 1
+    game.propagate_explosions(game.tick_bombs())
+    assert game.bombs == [], "Both bombs exploded"
+    assert game.grid[1][1] == game.grid[1][5] == game.grid[2][3] == CellType.FLOOR.value, "All boxes are destroyed"
+    assert game.agents[0].boxes_blown_up == 1, "Player 0 is awarded of 1 box"
+    assert game.agents[1].boxes_blown_up == 2, "Player 1 is awarded of 2 box"
+
+
 def test_path(game: Game):
     for x in range(12, 0, -1):
         next_cell = game.path((5, x), (5, 0))
