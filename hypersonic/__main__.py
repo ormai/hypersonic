@@ -5,20 +5,21 @@ import os
 
 from .display import Display
 from .model import Game
-from .entities import ExecutableAgent, AspAgent, nASPiAgent
+from .entities import ExecutableAgent, AspAgent, nASPiAgent, GameStopppers
 
 
 active_agents = ['randomASP', 'randomPY']
 
 if len(active_agents) > 2:
-    raise ValueError(f"Too many agents. Maximum allowed: 2")
+    raise ValueError("Too many agents. Maximum allowed: 2")
+
 
 AGENTS = {
     'iPuponi': AspAgent(agent_id=active_agents.index('iPuponi')
                             if 'iPuponi' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('iPuponi')]
                             if 'iPuponi' in active_agents else (0, 0),
-                            asp_programs=[],
+                            asp_programs=[os.path.join("encodings", "iPuponi.lp")],
                             name="iPuponi"),
     'nASPi': nASPiAgent(agent_id=active_agents.index('nASPi')
                             if 'nASPi' in active_agents else 0,
@@ -30,12 +31,10 @@ AGENTS = {
                             if 'leo_sal' in active_agents else (0, 0),
                             asp_programs=[],
                             name="leo_sal"),
-    'gameStoppers': AspAgent(agent_id=active_agents.index('gameStoppers')
-                                if 'gameStoppers' in active_agents else 0,
-                                start_cell=Game.START_POSITIONS[active_agents.index('gameStoppers')]
-                                if 'gameStoppers' in active_agents else (0, 0),
-                                asp_programs=[],
-                                name="gameStoppers"),
+    'GameStopppers': GameStopppers(agent_id=active_agents.index('GameStopppers')
+                                if 'GameStopppers' in active_agents else 0,
+                                start_cell=Game.START_POSITIONS[active_agents.index('GameStopppers')]
+                                if 'GameStopppers' in active_agents else (0, 0)),
     'randomASP': AspAgent(agent_id=active_agents.index('randomASP')
                             if 'randomASP' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('randomASP')]
