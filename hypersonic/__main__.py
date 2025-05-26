@@ -5,13 +5,14 @@ import os
 
 from .display import Display
 from .model import Game
-from .entities import ExecutableAgent, AspAgent
+from .entities import AspAgent, GameStopppers, ExecutableAgent
 
 
 active_agents = ['randomASP', 'randomPY']
 
 if len(active_agents) > 2:
-    raise ValueError(f"Too many agents. Maximum allowed: 2")
+    raise ValueError("Too many agents. Maximum allowed: 2")
+
 
 AGENTS = {
     'iPuponi': AspAgent(agent_id=active_agents.index('iPuponi')
@@ -32,12 +33,10 @@ AGENTS = {
                             if 'leo_sal' in active_agents else (0, 0),
                             asp_programs=[],
                             name="leo_sal"),
-    'gameStoppers': AspAgent(agent_id=active_agents.index('gameStoppers')
-                                if 'gameStoppers' in active_agents else 0,
-                                start_cell=Game.START_POSITIONS[active_agents.index('gameStoppers')]
-                                if 'gameStoppers' in active_agents else (0, 0),
-                                asp_programs=[],
-                                name="gameStoppers"),
+    'GameStopppers': GameStopppers(agent_id=active_agents.index('GameStopppers')
+                                if 'GameStopppers' in active_agents else 0,
+                                start_cell=Game.START_POSITIONS[active_agents.index('GameStopppers')]
+                                if 'GameStopppers' in active_agents else (0, 0)),
     'randomASP': AspAgent(agent_id=active_agents.index('randomASP')
                             if 'randomASP' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('randomASP')]

@@ -2,7 +2,6 @@ from random import randint
 
 width, height, my_id = map(int, input().split())
 
-turn = 0
 turns_left = 0  # wait to reach the position
 current_action = ""
 while True:
@@ -23,5 +22,4 @@ while True:
         turns_left = abs(dst_x - x) + abs(dst_y - y) / 3 * 2
 
     print(current_action)
-    turn += 1
     turns_left -= 1

@@ -369,7 +369,7 @@ class AspAgent(Agent):
                 start = time()
             self.answer_sets = self.handler.start_sync()
             if __debug__:
-                log.debug(f"{self.name} blocked for {(time() - start) * 1000:.2f}ms") # type: ignore [possibly-unbound]
+                log.debug(f"{self.name} blocked for {(time() - start) * 1000:.2f}ms")  # type: ignore [possibly-unbound]
 
             with self.lock:
                 self.is_running = False
@@ -447,3 +447,38 @@ class AspAgent(Agent):
         with self.lock:
             self.disqualified = True
             self.run_condition.notify()
+
+
+class GameStopppers(AspAgent):
+    """
+    Further specialization of the AspAgent specific to Bombardino. This class
+    handles the storage of state across turns in the form of ASP atoms.
+    It also provides more debugging information.
+    """
+
+    def __init__(self, agent_id: int, start_cell: tuple[int, int]):
+        super().__init__(agent_id, start_cell, [os.path.join("encodings", "GameStopppers.lp")], "GameStopppers")
+        self.custom_input = ASPInputProgram()
+        self.handler.add_program(self.custom_input)
+        self.previous_turn_output = ""
+
+    @override
+    def receive(self, turn: int) -> str:
+        action = super().receive(turn)
+        if action == "":
+            return action
+        _, x, y = action.split()
+        self.previous_turn_output = f"prevDestination({x},{y})."
+        return action
+
+    @override
+    def send_turn_state(self, agents: list[Agent], bombs: list[Bomb], grid: list[list[str]]):
+        self.custom_input.set_programs(self.previous_turn_output)
+        super().send_turn_state(agents, bombs, grid)
+
+        for agent in agents:
+            self.custom_input.add_program(f"score({agent.id}, {agent.boxes_blown_up}).")
+
+        if __debug__:  # Print all input atoms for easy copy-paste when debugging
+            input_atoms = ''.join(self.handler.get_input_program(key).get_programs() for key in (3, 0, 2)).strip()
+            log.debug(f"{self.name}'s input atoms:  {input_atoms}")
