@@ -339,8 +339,7 @@ class AspAgent(Agent):
 
         self.handler = DesktopHandler(DLV2DesktopService(os.path.join("lib", dlv_lib)))
         self.handler.add_option(OptionDescriptor("--silent"))
-        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2,destination/2"))
-        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2,destination/2"))
+        self.handler.add_option(OptionDescriptor("--filter=move/2,placeBomb/2"))
         self.handler.add_option(OptionDescriptor("--printonlyoptimum"))
 
         self.turn_state_program = ASPInputProgram()
@@ -381,13 +380,12 @@ class AspAgent(Agent):
                               agents: list[Agent],
                               bombs: list[Bomb],
                               grid: list[list[str]]) -> str:
-        out = "".join(
+        return "".join(
             [f"box({x},{y})." for y in range(len(grid)) for x in range(len(grid[y])) if
              grid[y][x] == CellType.BOX.value] +
             [f"player({a.id},{a.x},{a.y},{a.bombs_left})." for a in agents] +
             [f"bomb({b.owner_id},{b.x},{b.y},{b.timer})." for b in bombs]
         )
-        return out
 
     @override
     def send_prelude(self, width: int, height: int):
@@ -442,7 +440,7 @@ class AspAgent(Agent):
                         return f"BOMB {atom.x} {atom.y}"
         except IndexError:
             ...
-        log.debug(f"{self.name} provided an empty answer set")
+        log.warning(f"{self.name} provided an empty answer set")
         return ""
 
     def __timeout(self):

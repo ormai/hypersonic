@@ -1,14 +1,14 @@
 from time import time
+import sys
 import pygame
 import os
-import sys
 
 from .display import Display
 from .model import Game
 from .entities import AspAgent, GameStopppers, ExecutableAgent
 
 
-active_agents = ['randomASP', 'GameStopppers']
+active_agents = ['randomASP', 'randomPY']
 
 if len(active_agents) > 2:
     raise ValueError("Too many agents. Maximum allowed: 2")
