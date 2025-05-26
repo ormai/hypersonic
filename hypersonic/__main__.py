@@ -13,12 +13,13 @@ active_agents = ['randomASP', 'randomPY']
 if len(active_agents) > 2:
     raise ValueError("Too many agents. Maximum allowed: 2")
 
+
 AGENTS = {
     'iPuponi': AspAgent(agent_id=active_agents.index('iPuponi')
                             if 'iPuponi' in active_agents else 0,
                             start_cell=Game.START_POSITIONS[active_agents.index('iPuponi')]
                             if 'iPuponi' in active_agents else (0, 0),
-                            asp_programs=[],
+                            asp_programs=[os.path.join("encodings", "iPuponi.lp")],
                             name="iPuponi"),
     'nASPi': AspAgent(agent_id=active_agents.index('nASPi')
                         if 'nASPi' in active_agents else 0,

@@ -70,12 +70,14 @@ class Game:
         newly_exploded_coordinates: set[tuple[int, int]] = set()
         processed_bomb_coordinates: set[tuple[int, int]] = set((b.x, b.y) for b in exploding_bombs)
         box_hit_by: dict[tuple[int, int], set[int]] = defaultdict(set)  # box coordinates -> set of owner_id
+        exploded_bombs: set[Bomb] = set()
 
         # In this league, players are not hurt by bombs (they are using practice explosives).
 
         queue = deque(exploding_bombs)
         while queue:
             bomb = queue.popleft()
+            exploded_bombs.add(bomb)
             newly_exploded_coordinates.add((bomb.x, bomb.y))  # center of explosion
             for dx, dy in Game.DIRECTIONS:
                 for i in range(1, bomb.range):
@@ -91,6 +93,14 @@ class Game:
 
                     bomb_found = False
 
+                    # explosion stops after hitting a bomb in explosion
+                    for other_bomb in exploding_bombs:
+                        if other_bomb.x == nx and other_bomb.y == ny:
+                            bomb_found = True
+
+                    if bomb_found:
+                        break
+
                     # explosion triggers bombs nearby
                     for other_bomb in self.bombs:
                         if other_bomb.x == nx and other_bomb.y == ny:
@@ -98,7 +108,6 @@ class Game:
                             if other_bomb.timer > 0:
                                 if (other_bomb.x, other_bomb.y) not in processed_bomb_coordinates:
                                     log.debug(f"{bomb} exploded and detonated immediately {other_bomb}")
-                                    other_bomb.timer = 0  # detonate immediately
                                     # bomb exploded so return it to the agent
                                     self.agents[other_bomb.owner_id].bombs_left += 1
                                     if other_bomb not in queue:
@@ -119,7 +128,7 @@ class Game:
                     self.agents[owner_id].boxes_blown_up += 1
 
         # Remove chain-reacted bombs from main list
-        self.bombs = [bomb for bomb in self.bombs if bomb.timer > 0]
+        self.bombs = [bomb for bomb in self.bombs if bomb not in exploded_bombs]
 
     def parse_action(self, agent_id: int, action: str) -> tuple[str, int, int]:
         pack = action.split(maxsplit=3)
