@@ -488,7 +488,6 @@ class nASPiAgent(AspAgent):
             + f"cell(0..{width - 1},0..{height - 1}).bombRange(3).explosionRange(1..2).")
         self.handler.add_program(prelude)
 
-        
 
 class GameStopppers(AspAgent):
     """
