@@ -8,6 +8,8 @@ The runner is a [pygame](https://www.pygame.org/) app that takes pluggable agent
 
 Writing the solution in ASP was a course requirement. The solutions of all four groups, as well as some testing agents, can be found under [`encodings`](encodings/). To change the agents that will run edit the `active_agents` list in [main](hypersonic/__main__.py), you may use one of the ones already configured in the `AGENTS` dict or add new ones.
 
+If you ever need an ASP syntax file for Vim/Neovim you can find one [here](https://github.com/ormai/dotfiles/blob/main/nvim/syntax/lp.vim).
+
 ## Run it with [uv](https://github.com/astral-sh/uv)
 
 ```sh
